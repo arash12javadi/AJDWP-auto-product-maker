@@ -15,7 +15,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
             'price_calc'        => sanitize_text_field($_POST['price_calc'] ?? ''),
         ];
 
-        $data = ajdwp_apm_scrape_product_data($url, $selectors);
+        $skip_fields = [
+            'title'             => isset($_POST['skip_title']),
+            'short_description' => isset($_POST['skip_short']),
+            'long_description'  => isset($_POST['skip_long']),
+            'image'             => isset($_POST['skip_image']),
+            'gallery'           => isset($_POST['skip_gallery']),
+            'price'             => isset($_POST['skip_price']),
+        ];
+
+        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields);
+
         $action_stage = $_POST['action_stage'] ?? 'preview';
 
         if ($data && !empty($data['title'])) {
@@ -68,25 +78,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     <input type="url" name="product_url" required style="width: 100%;" /><br><br>
 
     <label>Title Selector:</label><br>
-    <input type="text" name="selector_title" value="h1" /><br>
+    <input type="text" name="selector_title" value="h1" />
+    <label><input type="checkbox" name="skip_title"> Leave blank if not found</label><br><br>
 
     <label>Short Description Selector:</label><br>
-    <input type="text" name="selector_short" /><br>
+    <input type="text" name="selector_short" value=".woocommerce-product-details__short-description" />
+    <label><input type="checkbox" name="skip_short"> Leave blank if not found</label><br><br>
 
     <label>Long Description Selector:</label><br>
-    <input type="text" name="selector_long" /><br>
+    <input type="text" name="selector_long" value=".woocommerce-Tabs-panel--description" />
+    <label><input type="checkbox" name="skip_long"> Leave blank if not found</label><br><br>
 
     <label>Main Image Selector:</label><br>
-    <input type="text" name="selector_image" /><br>
+    <input type="text" name="selector_image" value="img.wp-post-image" />
+    <label><input type="checkbox" name="skip_image"> Leave blank if not found</label><br><br>
 
     <label>Gallery Image Selectors (comma-separated):</label><br>
-    <input type="text" name="selector_gallery" /><br>
+    <input type="text" name="selector_gallery" value=".woocommerce-product-gallery__image img" />
+    <label><input type="checkbox" name="skip_gallery"> Leave blank if not found</label><br><br>
 
     <label>Price Selector:</label><br>
-    <input type="text" name="selector_price" /><br>
+    <input type="text" name="selector_price" value=".price .amount" />
+    <label><input type="checkbox" name="skip_price"> Leave blank if not found</label><br><br>
 
     <label>Price Multiplier (e.g., x1.2 or +5):</label><br>
-    <input type="text" name="price_calc" /><br><br>
+    <input type="text" name="selector_price_calc" value="" /><br><br>
 
     <button class="button button-primary">Preview Product</button>
 </form>

@@ -31,13 +31,35 @@ function ajdwp_apm_create_product($data, $existing_id = null)
 
     // ✅ Attach featured image
     $image_url = $data['image'] ?? '';
+
     if (!empty($image_url)) {
-        $media_id = media_sideload_image($image_url, $product->get_id(), null, 'id');
-        if (!is_wp_error($media_id)) {
-            $product->set_image_id($media_id);
-            $product->save(); // Save again after setting image
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+
+        // ✅ Add fallback alt text or caption if needed
+        $tmp = download_url($image_url);
+
+        if (!is_wp_error($tmp)) {
+            $file_array = [
+                'name'     => basename($image_url),
+                'tmp_name' => $tmp
+            ];
+
+            // Upload and get attachment ID
+            $media_id = media_handle_sideload($file_array, $product->get_id());
+
+            if (!is_wp_error($media_id)) {
+                $product->set_image_id($media_id);
+                $product->save();
+            } else {
+                error_log('Image sideload error: ' . $media_id->get_error_message());
+            }
+        } else {
+            error_log('Image download failed: ' . $tmp->get_error_message());
         }
     }
+
 
     return $product->get_id();
 }
