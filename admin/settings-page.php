@@ -1,10 +1,18 @@
 <?php
+// Load scraper functions
+require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
 
+echo '<div class="wrap">';
+echo '<h1>Auto Product Maker</h1>';
+
+// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     if (!isset($_POST['ajdwp_apm_nonce']) || !wp_verify_nonce($_POST['ajdwp_apm_nonce'], 'ajdwp_apm_action')) {
-        echo '<div class="notice notice-error"><p>Security check failed.</p></div>';
+        echo '<div class="notice notice-error"><p>❌ Security check failed.</p></div>';
     } else {
         $url = esc_url_raw(trim($_POST['product_url']));
+
+        // Collect selectors
         $selectors = [
             'title'             => sanitize_text_field($_POST['selector_title'] ?? ''),
             'short_description' => sanitize_text_field($_POST['selector_short'] ?? ''),
@@ -12,47 +20,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
             'image'             => sanitize_text_field($_POST['selector_image'] ?? ''),
             'gallery'           => sanitize_text_field($_POST['selector_gallery'] ?? ''),
             'price'             => sanitize_text_field($_POST['selector_price'] ?? ''),
-            'price_calc'        => sanitize_text_field($_POST['price_calc'] ?? ''),
+            'price_calc'        => sanitize_text_field($_POST['selector_price_calc'] ?? ''),
         ];
 
-        $skip_fields = [
-            'title'             => isset($_POST['skip_title']),
-            'short_description' => isset($_POST['skip_short']),
-            'long_description'  => isset($_POST['skip_long']),
-            'image'             => isset($_POST['skip_image']),
-            'gallery'           => isset($_POST['skip_gallery']),
-            'price'             => isset($_POST['skip_price']),
-        ];
-
-        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields);
+        // Track skipped fields
+        $skip_fields = [];
+        foreach (['title', 'short_description', 'long_description', 'image', 'gallery', 'price'] as $field) {
+            if (!empty($_POST['skip_' . $field])) {
+                $skip_fields[] = $field;
+            }
+        }
 
         $action_stage = $_POST['action_stage'] ?? 'preview';
+        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields);
 
         if ($data && !empty($data['title'])) {
             if ($action_stage === 'preview') {
-                // Show preview
-                echo "<div class='notice notice-info'><p>🔍 Preview below — confirm to insert product.</p></div>";
-                echo "<h3>{$data['title']}</h3>";
-                echo "<p><strong>Price:</strong> {$data['price']}</p>";
-                echo "<p><strong>Description:</strong> {$data['short_description']}</p>";
-                echo "<img src='{$data['image']}' style='max-width:300px;' />";
+                echo '<div style="margin-top: 20px;">';
+                echo '<h2>🔍 Scraped Preview</h2>';
 
-                // Confirm form
+                echo '<h3>Title:</h3><span>' . esc_html($data['title'] ?? '⛔ Not found') . '</span>';
+                if (!empty($data['price_regular'])) {
+                    echo "<h3>Regular Price:</h3> <Span>" . esc_html($data['price_regular']) . "</span>";
+                }
+                if (!empty($data['price'])) {
+                    echo "<h3>Discounted Price:</h3> <Span>" . esc_html($data['price']) . "</span>";
+                }
+                echo '</br></br><label><input type="checkbox" name="use_regular_price"> Use regular price instead of discounted</label><br>';
+
+                echo '<h3>Short Description:<br></h3><p>' . esc_html($data['short_description'] ?? '⛔ Not found') . '</p>';
+                echo '<h3>Long Description:</h3><p>' . wp_kses_post($data['long_description'] ?? '<em>⛔ Not found</em>') . '</p>';
+
+                if (!empty($data['image'])) {
+                    echo '<h3>Main Image:<br><br><img src="' . esc_url($data['image']) . '" style="max-width:300px;"></h3>';
+                } else {
+                    echo '<h3>Main Image: ⛔ Not found</h3>';
+                }
+
+                if (!empty($data['gallery']) && is_array($data['gallery'])) {
+                    echo '<h3>Gallery Images:<br><br>';
+                    foreach ($data['gallery'] as $img_url) {
+                        echo '<img src="' . esc_url($img_url) . '" style="max-width:100px; margin-right: 5px;">';
+                    }
+                    echo '</h3>';
+                } else {
+                    echo '<h3>Gallery Images: ⛔ Not found</h3>';
+                }
+
+                echo '</div>';
+
+                // Confirmation form
 ?>
                 <form method="post">
                     <?php wp_nonce_field('ajdwp_apm_action', 'ajdwp_apm_nonce'); ?>
                     <input type="hidden" name="action_stage" value="submit">
                     <input type="hidden" name="product_url" value="<?php echo esc_attr($url); ?>">
-                    <?php
-                    foreach ($selectors as $key => $val) {
-                        echo '<input type="hidden" name="selector_' . esc_attr($key) . '" value="' . esc_attr($val) . '">';
-                    }
-                    ?>
+                    <?php foreach ($selectors as $key => $val): ?>
+                        <input type="hidden" name="selector_<?php echo esc_attr($key); ?>" value="<?php echo esc_attr($val); ?>">
+                    <?php endforeach; ?>
+                    <br>
                     <button class="button button-primary">✅ Confirm and Create Product</button>
                 </form>
+                <hr>
 <?php
             } else {
-                // ✅ Create or update
+                // Create or update product
                 $existing_product_id = ajdwp_apm_get_existing_product_id($url);
                 $product_id = ajdwp_apm_create_product($data, $existing_product_id);
 
@@ -63,46 +95,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
                 }
             }
         } else {
-            echo "<div class='notice notice-error'><p>❌ Failed to scrape valid data. Please check your selectors.</p></div>";
+            echo '<div class="notice notice-error"><p>❌ Failed to scrape valid data. Please check your selectors.</p></div>';
         }
     }
 }
 ?>
 
+<!-- Product scraping form -->
 <form method="post">
     <?php wp_nonce_field('ajdwp_apm_action', 'ajdwp_apm_nonce'); ?>
-
     <input type="hidden" name="action_stage" value="preview">
 
-    <label>Page URL:</label><br>
-    <input type="url" name="product_url" required style="width: 100%;" /><br><br>
+    <table class="form-table">
+        <tr>
+            <th><label for="product_url">Page URL:</label></th>
+            <td><input type="url" name="product_url" required style="width: 100%;" /></td>
+        </tr>
+        <?php
+        $fields = [
+            'title' => 'Title Selector',
+            'short' => 'Short Description Selector',
+            'long' => 'Long Description Selector',
+            'image' => 'Main Image Selector',
+            'gallery' => 'Gallery Image Selectors (comma-separated)',
+            'price' => 'Price Selector',
+        ];
+        foreach ($fields as $key => $label):
+        ?>
+            <tr>
+                <th><label><?php echo esc_html($label); ?>:</label></th>
+                <td>
+                    <input type="text" name="selector_<?php echo esc_attr($key); ?>" />
+                    <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>"> Ignore if it is not found</label>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        <tr>
+            <th><label>Price Multiplier (e.g. x1.2 or +5):</label></th>
+            <td><input type="text" name="selector_price_calc" /></td>
+        </tr>
+    </table>
 
-    <label>Title Selector:</label><br>
-    <input type="text" name="selector_title" value="h1" />
-    <label><input type="checkbox" name="skip_title"> Leave blank if not found</label><br><br>
-
-    <label>Short Description Selector:</label><br>
-    <input type="text" name="selector_short" value=".woocommerce-product-details__short-description" />
-    <label><input type="checkbox" name="skip_short"> Leave blank if not found</label><br><br>
-
-    <label>Long Description Selector:</label><br>
-    <input type="text" name="selector_long" value=".woocommerce-Tabs-panel--description" />
-    <label><input type="checkbox" name="skip_long"> Leave blank if not found</label><br><br>
-
-    <label>Main Image Selector:</label><br>
-    <input type="text" name="selector_image" value="img.wp-post-image" />
-    <label><input type="checkbox" name="skip_image"> Leave blank if not found</label><br><br>
-
-    <label>Gallery Image Selectors (comma-separated):</label><br>
-    <input type="text" name="selector_gallery" value=".woocommerce-product-gallery__image img" />
-    <label><input type="checkbox" name="skip_gallery"> Leave blank if not found</label><br><br>
-
-    <label>Price Selector:</label><br>
-    <input type="text" name="selector_price" value=".price .amount" />
-    <label><input type="checkbox" name="skip_price"> Leave blank if not found</label><br><br>
-
-    <label>Price Multiplier (e.g., x1.2 or +5):</label><br>
-    <input type="text" name="selector_price_calc" value="" /><br><br>
-
-    <button class="button button-primary">Preview Product</button>
+    <p><button class="button button-primary">🔍 Preview Product</button></p>
 </form>
+
+<?php echo '</div>'; // close .wrap 
+?>
