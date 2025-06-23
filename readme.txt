@@ -29,18 +29,7 @@ Perfect for bulk product management, marketplace automation, and simplifying sto
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. Go to `WooCommerce > Auto Product Maker` to start scraping and creating products.
 
-== Frequently Asked Questions ==
-
-= Is scraping legal? =
-Always check the website’s terms of service before scraping. This plugin assumes you have the right to collect the data you’re targeting.
-
-= Can I map custom fields or attributes? =
-Basic support is available now. More advanced mapping will be added in future updates.
-
-= Can I scrape images? =
-Yes, if the images are publicly available in the HTML structure.
-
-== Screenshots ==
+== Plugin Specs ==
 
 1. Admin panel for entering product URLs.
 2. Preview of scraped product data before submission.
