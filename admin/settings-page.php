@@ -5,12 +5,34 @@ require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
 echo '<div class="wrap">';
 echo '<h1>Auto Product Maker</h1>';
 
-// Handle form submission
+// ===============================
+// Handle Form Submission
+// ===============================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     if (!isset($_POST['ajdwp_apm_nonce']) || !wp_verify_nonce($_POST['ajdwp_apm_nonce'], 'ajdwp_apm_action')) {
         echo '<div class="notice notice-error"><p>❌ Security check failed.</p></div>';
     } else {
+        global $wpdb;
+        $template_id = intval($_POST['template_select'] ?? 0);
         $url = esc_url_raw(trim($_POST['product_url']));
+
+        // ✅ Now $url is available here
+        if ($template_id && !empty($url)) {
+            $table_urls = $wpdb->prefix . 'ajdwp_template_urls';
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM $table_urls WHERE template_id = %d AND product_url = %s",
+                $template_id,
+                $url
+            ));
+
+            if (!$exists) {
+                $wpdb->insert($table_urls, [
+                    'template_id' => $template_id,
+                    'product_url' => $url
+                ]);
+            }
+        }
+
 
         // Collect selectors
         $selectors = [
@@ -32,48 +54,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
         }
 
         $action_stage = $_POST['action_stage'] ?? 'preview';
-        $method = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
-        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields, $method);
-
+        $method       = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
+        $data         = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields, $method);
 
         if ($data && !empty($data['title'])) {
             if ($action_stage === 'preview') {
                 echo '<div style="margin-top: 20px;">';
                 echo '<h2>🔍 Scraped Preview</h2>';
 
-                echo '<h3>Title:</h3><span>' . esc_html($data['title'] ?? '⛔ Not found') . '</span>';
-                if (!empty($data['price_regular'])) {
-                    echo "<h3>Regular Price:</h3> <Span>" . esc_html($data['price_regular']) . "</span>";
-                }
-                if (!empty($data['price'])) {
-                    echo "<h3>Discounted Price:</h3> <Span>" . esc_html($data['price']) . "</span>";
-                }
-                echo '</br></br><label><input type="checkbox" name="use_regular_price"> Use regular price instead of discounted</label><br>';
+                echo '<h3>Title:</h3><p>' . esc_html($data['title'] ?? '⛔ Not found') . '</p>';
+                global $wpdb;
+                $template_name = $wpdb->get_var($wpdb->prepare(
+                    "SELECT name FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
+                    $template_id
+                ));
 
-                echo '<h3>Short Description:<br></h3><p>' . esc_html($data['short_description'] ?? '⛔ Not found') . '</p>';
+                echo '<h3>Add This Product to:</h3><p>' . esc_html($template_name ?: '⛔ Not found') . '</p>';
+
+
+                if (!empty($data['price_regular'])) {
+                    echo '<h3>Regular Price:</h3><p>' . esc_html($data['price_regular']) . '</p>';
+                }
+
+                if (!empty($data['price'])) {
+                    echo '<h3>Discounted Price:</h3><p>' . esc_html($data['price']) . '</p>';
+                }
+
+                echo '<br><label><input type="checkbox" name="use_regular_price"> Use regular price instead of discounted</label><br>';
+
+                echo '<h3>Short Description:</h3><p>' . esc_html($data['short_description'] ?? '⛔ Not found') . '</p>';
                 echo '<h3>Long Description:</h3><p>' . wp_kses_post($data['long_description'] ?? '<em>⛔ Not found</em>') . '</p>';
 
-                error_log('🧪 Final image value: ' . print_r($data['image'], true));
-
+                echo '<h3>Main Image:</h3>';
                 if (!empty($data['image'])) {
-                    echo '<h3>Main Image:<br><br><img src="' . esc_url($data['image']) . '" style="max-width:300px;"></h3>';
+                    echo '<img src="' . esc_url($data['image']) . '" style="max-width:300px;"><br>';
                 } else {
-                    echo '<h3>Main Image: ⛔ Not found</h3>';
+                    echo '<p>⛔ Not found</p>';
                 }
 
+                echo '<h3>Gallery Images:</h3>';
                 if (!empty($data['gallery']) && is_array($data['gallery'])) {
-                    echo '<h3>Gallery Images:<br><br>';
                     foreach ($data['gallery'] as $img_url) {
                         echo '<img src="' . esc_url($img_url) . '" style="max-width:100px; margin-right: 5px;">';
                     }
-                    echo '</h3>';
                 } else {
-                    echo '<h3>Gallery Images: ⛔ Not found</h3>';
+                    echo '<p>⛔ Not found</p>';
                 }
 
                 echo '</div>';
 
-                // Confirmation form
+                // ✅ Confirmation form
 ?>
                 <form method="post">
                     <?php wp_nonce_field('ajdwp_apm_action', 'ajdwp_apm_nonce'); ?>
@@ -88,7 +118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
                 <hr>
 <?php
             } else {
-                // Create or update product
                 $existing_product_id = ajdwp_apm_get_existing_product_id($url);
                 $product_id = ajdwp_apm_create_product($data, $existing_product_id);
 
@@ -105,7 +134,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
 }
 ?>
 
-<!-- Product scraping form -->
+<!-- ===========================
+     Product Scraping Form
+=========================== -->
 <form method="post">
     <?php wp_nonce_field('ajdwp_apm_action', 'ajdwp_apm_nonce'); ?>
     <input type="hidden" name="action_stage" value="preview">
@@ -121,32 +152,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
                 </select>
             </td>
         </tr>
-
+        <tr>
+            <th><label for="template_select">Add to Template:</label></th>
+            <td>
+                <select name="template_select" required>
+                    <option value="">-- Select Template --</option>
+                    <?php
+                    global $wpdb;
+                    $templates = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}ajdwp_templates ORDER BY name ASC");
+                    foreach ($templates as $template) {
+                        echo '<option value="' . esc_attr($template->id) . '">' . esc_html($template->name) . '</option>';
+                    }
+                    ?>
+                </select>
+            </td>
+        </tr>
         <tr>
             <th><label for="product_url">Page URL:</label></th>
             <td><input type="url" name="product_url" required style="width: 100%;" /></td>
         </tr>
+
         <?php
         $fields = [
-            'title' => 'Title Selector',
-            'short' => 'Short Description Selector',
-            'long' => 'Long Description Selector',
-            'image' => 'Main Image Selector',
+            'title'   => 'Title Selector',
+            'short'   => 'Short Description Selector',
+            'long'    => 'Long Description Selector',
+            'image'   => 'Main Image Selector',
             'gallery' => 'Gallery Image Selectors (comma-separated)',
-            'price' => 'Price Selector',
+            'price'   => 'Price Selector',
         ];
+
         foreach ($fields as $key => $label):
         ?>
             <tr>
                 <th><label><?php echo esc_html($label); ?>:</label></th>
                 <td>
                     <input type="text" name="selector_<?php echo esc_attr($key); ?>" />
-                    <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>"> Ignore if it is not found</label>
+                    <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>"> Ignore if not found</label>
                 </td>
             </tr>
         <?php endforeach; ?>
+
         <tr>
-            <th><label>Price Multiplier (e.g. x1.2 or +5):</label></th>
+            <th><label for="selector_price_calc">Price Multiplier (e.g. x1.2 or +5):</label></th>
             <td><input type="text" name="selector_price_calc" /></td>
         </tr>
     </table>
@@ -154,5 +202,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     <p><button class="button button-primary">🔍 Preview Product</button></p>
 </form>
 
-<?php echo '</div>'; // close .wrap 
+<!-- ===========================
+     Template Manager Section
+=========================== -->
+<h2>🗂️ Template Manager</h2>
+<div id="ajdwp-template-manager">
+    <?php include AJDWPAPM_PATH . 'admin/templates/templates-ui.php'; ?>
+</div>
+
+<?php echo '</div>'; // end .wrap 
 ?>
