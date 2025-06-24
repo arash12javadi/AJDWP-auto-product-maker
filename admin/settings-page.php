@@ -32,7 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
         }
 
         $action_stage = $_POST['action_stage'] ?? 'preview';
-        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields);
+        $method = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
+        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields, $method);
+
 
         if ($data && !empty($data['title'])) {
             if ($action_stage === 'preview') {
@@ -50,6 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
 
                 echo '<h3>Short Description:<br></h3><p>' . esc_html($data['short_description'] ?? '⛔ Not found') . '</p>';
                 echo '<h3>Long Description:</h3><p>' . wp_kses_post($data['long_description'] ?? '<em>⛔ Not found</em>') . '</p>';
+
+                error_log('🧪 Final image value: ' . print_r($data['image'], true));
 
                 if (!empty($data['image'])) {
                     echo '<h3>Main Image:<br><br><img src="' . esc_url($data['image']) . '" style="max-width:300px;"></h3>';
@@ -107,6 +111,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     <input type="hidden" name="action_stage" value="preview">
 
     <table class="form-table">
+        <tr>
+            <th><label for="scrape_method">Scraping Method:</label></th>
+            <td>
+                <select name="scrape_method">
+                    <option value="auto" selected>Auto (Try HTML first)</option>
+                    <option value="static">Static (faster, for simple sites)</option>
+                    <option value="dynamic">Dynamic (JS-rendered sites)</option>
+                </select>
+            </td>
+        </tr>
+
         <tr>
             <th><label for="product_url">Page URL:</label></th>
             <td><input type="url" name="product_url" required style="width: 100%;" /></td>

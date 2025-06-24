@@ -30,28 +30,61 @@ function ajdwp_apm_get_rendered_html($url)
 
 
 /**
- * Parses product data from rendered HTML using provided selectors.
+ * Attempts to scrape product data using static HTML first, then falls back to dynamic scraping with Playwright if needed.
  *
  * @param string $url Page URL
- * @param array $selectors Custom CSS selectors for each field
- * @param array $skip_fields List of fields to skip
- * @return array|false Associative array of product data or false on failure
+ * @param array $selectors Custom CSS selectors
+ * @param array $skip_fields Fields to skip
+ * @param string $method 'auto' | 'static' | 'dynamic'
+ * @return array|false
  */
-function ajdwp_apm_scrape_product_data($url, $selectors = [], $skip_fields = [])
+function ajdwp_apm_scrape_product_data($url, $selectors = [], $skip_fields = [], $method = 'auto')
 {
-    $html = ajdwp_apm_get_rendered_html($url);
-    if (!$html) return false;
+    $html = '';
+    $parsed = false;
 
+    // Method 1: Try static HTML scraping
+    if ($method === 'static' || $method === 'auto') {
+        $html = @file_get_contents($url);
+        // file_put_contents(AJDWPAPM_PATH . 'debug-static.html', $html);
+
+        if ($html && strlen($html) > 100) {
+            $parsed = ajdwp_apm_parse_product_html($html, $url, $selectors, $skip_fields);
+            if ($method === 'static' || ($parsed && !empty($parsed['title']))) {
+                return $parsed;
+            }
+        }
+    }
+
+    // Method 2: Fallback to dynamic scraping via Playwright
+    if ($method === 'dynamic' || $method === 'auto') {
+        $html = ajdwp_apm_get_rendered_html($url);
+
+        if ($html && strlen($html) > 100) {
+            $parsed = ajdwp_apm_parse_product_html($html, $url, $selectors, $skip_fields);
+            if ($parsed && !empty($parsed['title'])) {
+                return $parsed;
+            }
+        }
+    }
+
+    // ❌ Failed
+    return false;
+}
+
+
+function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields = [])
+{
+    require_once AJDWPAPM_PATH . 'includes/simple_html_dom.php';
     $dom = str_get_html($html);
     if (!$dom) return false;
 
-    // Default selectors for WooCommerce/OpenGraph/HTML5
     $defaults = [
         'title'             => 'meta[property="og:title"]',
         'price'             => 'div.summary.entry-summary p ins span bdi, span.woocommerce-Price-amount bdi',
         'short_description' => 'meta[name="description"], meta[property="og:description"]',
         'long_description'  => 'div.woocommerce-Tabs-panel--description, div.product-description, div#tab-description',
-        'image'             => 'div.woocommerce-product-gallery__image.flex-active-slide a',
+        'image'             => 'img.wp-post-image, .woocommerce-product-gallery__image img',
         'gallery'           => 'div.woocommerce-product-gallery__wrapper img',
     ];
 
@@ -66,15 +99,12 @@ function ajdwp_apm_scrape_product_data($url, $selectors = [], $skip_fields = [])
         $actual_selector = !empty($selectors[$field]) ? $selectors[$field] : $selector;
         $found_elements = $dom->find($actual_selector);
 
-        // 📸 Handle gallery images (high-resolution)
         if ($field === 'gallery') {
             $gallery_images = [];
             foreach ($found_elements as $img) {
                 $high_res = $img->getAttribute('data-large_image') ??
                     $img->getAttribute('data-src') ??
                     $img->getAttribute('src');
-
-                // Optional: Skip thumbnails like -150x150.jpg
                 if (!empty($high_res) && strpos($high_res, '-150x150') === false) {
                     $gallery_images[] = $high_res;
                 }
@@ -83,16 +113,26 @@ function ajdwp_apm_scrape_product_data($url, $selectors = [], $skip_fields = [])
             continue;
         }
 
-        // 🔍 Process single element fields
         $found = $found_elements[0] ?? null;
 
         if ($found) {
             if (str_contains($actual_selector, 'meta[')) {
                 $data[$field] = $found->content ?? '';
             } elseif ($field === 'image') {
-                $data[$field] = $found->href ?? $found->src ?? '';
+                $image = '';
+                if ($found && !empty($found->src)) {
+                    $src = trim($found->src);
+
+                    if (strpos($src, 'http') === 0) {
+                        $image = $src;
+                    } else {
+                        $parsed_url = parse_url($url);
+                        $base = $parsed_url['scheme'] . '://' . $parsed_url['host'];
+                        $image = $base . '/' . ltrim($src, '/');
+                    }
+                }
+                $data[$field] = $image;
             } elseif ($field === 'price') {
-                // 🏷 Extract both sale and original prices
                 $ins_price_el = $dom->find('p.price ins span bdi', 0);
                 $del_price_el = $dom->find('p.price del span bdi', 0);
 
@@ -103,8 +143,8 @@ function ajdwp_apm_scrape_product_data($url, $selectors = [], $skip_fields = [])
                     return str_replace(',', '.', trim($text));
                 };
 
-                $data['price'] = $extract_price($ins_price_el);         // Discounted (used by default)
-                $data['price_regular'] = $extract_price($del_price_el); // Original (optional for display)
+                $data['price'] = $extract_price($ins_price_el);
+                $data['price_regular'] = $extract_price($del_price_el);
             } else {
                 $data[$field] = trim($found->plaintext ?? '');
             }
