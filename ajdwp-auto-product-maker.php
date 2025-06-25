@@ -10,6 +10,29 @@ Text Domain: ajdwp-auto-product-maker
 defined('ABSPATH') || exit;
 
 // ============================
+// Admin Menu Registration
+// ============================
+add_action('admin_menu', 'ajdwp_apm_register_menu');
+
+function ajdwp_apm_register_menu()
+{
+    add_menu_page(
+        'Auto Product Maker',
+        'Auto Product Maker',
+        'manage_woocommerce',
+        'ajdwp-auto-product-maker',
+        'ajdwp_apm_render_settings_page',
+        'dashicons-cart',
+        56
+    );
+}
+
+function ajdwp_apm_render_settings_page()
+{
+    include AJDWPAPM_PATH . 'admin/settings-page.php';
+}
+
+// ============================
 // Constants
 // ============================
 define('AJDWPAPM_PATH', plugin_dir_path(__FILE__));
@@ -21,6 +44,13 @@ define('AJDWPAPM_URL', plugin_dir_url(__FILE__));
 add_action('admin_enqueue_scripts', function ($hook) {
     if (strpos($hook, 'ajdwp-auto-product-maker') === false) return;
 
+    // Shared AJAX data
+    $ajax_vars = [
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('ajdwp_template_nonce'),
+    ];
+
+    // Enqueue Template Admin JS
     wp_enqueue_script(
         'ajdwp-template-admin',
         AJDWPAPM_URL . 'assets/js/template-admin.js',
@@ -28,67 +58,38 @@ add_action('admin_enqueue_scripts', function ($hook) {
         null,
         true
     );
+    wp_localize_script('ajdwp-template-admin', 'AJDWP', $ajax_vars);
 
-    wp_localize_script('ajdwp-template-admin', 'AJDWP', [
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce'    => wp_create_nonce('ajdwp_template_nonce'),
-    ]);
+    // Enqueue Template Products JS
+    wp_enqueue_script(
+        'ajdwp-template-products',
+        AJDWPAPM_URL . 'assets/js/template-products.js',
+        ['jquery'],
+        null,
+        true
+    );
+
+    // Optional: Load only on your plugin's admin page
+    if (strpos($hook, 'ajdwp-auto-product-maker') === false) return;
+
+    wp_enqueue_style(
+        'ajdwp-style',
+        AJDWPAPM_URL . 'assets/css/style.css',
+        [],
+        null
+    );
 });
 
+
+
 // ============================
-// Activation: Create DB Tables
+// Activation: Create DB Tables -> to be tested later 
 // ============================
-register_activation_hook(__FILE__, 'ajdwp_apm_on_activate');
 
-function ajdwp_apm_on_activate()
-{
-    global $wpdb;
+// Activation Hook
+require_once plugin_dir_path(__FILE__) . 'templates/create_db_on_activation.php';
+register_activation_hook(__FILE__, 'ajdwp_apm_create_db_tables');
 
-    $charset_collate = $wpdb->get_charset_collate();
-    $table_templates = $wpdb->prefix . 'ajdwp_templates';
-    $table_selectors = $wpdb->prefix . 'ajdwp_template_selectors';
-    $table_urls      = $wpdb->prefix . 'ajdwp_template_urls';
-
-    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-
-    dbDelta("
-        CREATE TABLE $table_templates (
-            id INT NOT NULL AUTO_INCREMENT,
-            name VARCHAR(255) NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
-        ) $charset_collate;
-    ");
-
-    dbDelta("
-        CREATE TABLE $table_selectors (
-            id INT NOT NULL AUTO_INCREMENT,
-            template_id INT NOT NULL,
-            field_name VARCHAR(50) NOT NULL,
-            selector_value TEXT NOT NULL,
-            PRIMARY KEY (id),
-            INDEX (template_id)
-        ) $charset_collate;
-    ");
-
-    dbDelta("
-        CREATE TABLE $table_urls (
-            id INT NOT NULL AUTO_INCREMENT,
-            template_id INT NOT NULL,
-            product_url TEXT NOT NULL,
-            last_scraped DATETIME DEFAULT NULL,
-            status VARCHAR(50) DEFAULT NULL,
-            PRIMARY KEY (id),
-            INDEX (template_id)
-        ) $charset_collate;
-    ");
-
-    // ✅ Create default template if missing
-    $exists = $wpdb->get_var("SELECT COUNT(*) FROM $table_templates WHERE name = 'Default Template'");
-    if (!$exists) {
-        $wpdb->insert($table_templates, ['name' => 'Default Template']);
-    }
-}
 
 // ============================
 // Deactivation: Optional Cleanup
@@ -125,6 +126,7 @@ function ajdwp_apm_init_plugin()
     require_once AJDWPAPM_PATH . 'includes/product-creator.php';
     require_once AJDWPAPM_PATH . 'includes/helpers.php';
     require_once AJDWPAPM_PATH . 'admin/admin-menu.php';
+    require_once AJDWPAPM_PATH . 'admin/ajax-handlers.php';
 }
 
 // WooCommerce Required Notice

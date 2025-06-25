@@ -5,6 +5,7 @@ jQuery(function ($) {
 
   // Add template
   $(document).on("click", "#add-template-btn", function () {
+    const wrapper = $("#ajdwp-add-template");
     const name = $("#new-template-name").val().trim();
     if (!name) return alert("Template name is required.");
 
@@ -12,29 +13,24 @@ jQuery(function ($) {
       AJDWP.ajax_url,
       {
         action: "ajdwp_add_template",
-        name: name,
         _ajax_nonce: AJDWP.nonce,
+        name: name,
+        scrape_method: wrapper.find("select[name='scrape_method']").val(),
+        title_selector: wrapper.find("input[name='title_selector']").val().trim(),
+        short_desc_selector: wrapper.find("input[name='short_desc_selector']").val().trim(),
+        long_desc_selector: wrapper.find("input[name='long_desc_selector']").val().trim(),
+        main_image_selector: wrapper.find("input[name='main_image_selector']").val().trim(),
+        gallery_image_selectors: wrapper.find("input[name='gallery_image_selectors']").val().trim(),
+        price_selector: wrapper.find("input[name='price_selector']").val().trim(),
+        price_multiplier: wrapper.find("input[name='price_multiplier']").val().trim(),
       },
       function (res) {
         if (res.success) {
-          const html = `
-          <li data-id="${res.data.id}" style="margin-bottom: 15px;">
-            <div>
-              <strong>${res.data.name}</strong>
-              <button class="button rename-template" data-id="${res.data.id}">✏️ Rename</button>
-              <button class="button delete-template" data-id="${res.data.id}">🗑️ Delete</button>
-            </div>
-            <div class="template-urls" style="margin-left: 20px; margin-top: 10px;">
-              <input type="url" class="new-template-url" placeholder="Add URL..." data-template-id="${res.data.id}">
-              <button class="button add-template-url" data-template-id="${res.data.id}">➕ Add URL</button>
-              <ul class="url-list" data-template-id="${res.data.id}" style="margin-top: 10px;">
-                <li><em>No URLs yet.</em></li>
-              </ul>
-            </div>
-          </li>
-        `;
-          $("#template-list").prepend(html);
-          $("#new-template-name").val("");
+          alert("✅ Template added successfully.");
+          location.reload();
+        } else {
+          alert("❌ Failed to add template.");
+          console.error(res);
         }
       }
     );
@@ -54,7 +50,10 @@ jQuery(function ($) {
       },
       function (res) {
         if (res.success) {
-          $(`li[data-id="${id}"]`).remove();
+          alert("✅ Template deleted successfully.");
+          location.reload();
+        } else {
+          alert("❌ Failed to delete template.");
         }
       }
     );
@@ -63,7 +62,7 @@ jQuery(function ($) {
   // Rename template
   $(document).on("click", ".rename-template", function () {
     const id = $(this).data("id");
-    const currentName = $(`li[data-id="${id}"] strong`).text();
+    const currentName = $(".ajdwp-template-header h2").text().trim();
     const newName = prompt("Enter new template name:", currentName);
     if (!newName || newName === currentName) return;
 
@@ -77,7 +76,10 @@ jQuery(function ($) {
       },
       function (res) {
         if (res.success) {
-          $(`li[data-id="${id}"] strong`).text(newName);
+          alert("✅ Template renamed successfully.");
+          location.reload();
+        } else {
+          alert("❌ Failed to rename template.");
         }
       }
     );
@@ -106,13 +108,13 @@ jQuery(function ($) {
       function (res) {
         if (res.success) {
           const html = `
-          <li data-id="${res.data.id}">
-            ${res.data.url}
-            <button class="button delete-template-url" data-id="${res.data.id}">🗑️</button>
-          </li>
-        `;
+            <li data-id="${res.data.id}">
+              ${res.data.url}
+              <button class="button delete-template-url" data-id="${res.data.id}">🗑️</button>
+            </li>
+          `;
           const urlList = $(`.url-list[data-template-id="${templateId}"]`);
-          urlList.find("em").remove(); // remove placeholder if exists
+          urlList.find("em").remove();
           urlList.append(html);
           input.val("");
         }
@@ -139,14 +141,10 @@ jQuery(function ($) {
       }
     );
   });
-});
 
-// ==================================
-
-jQuery(document).ready(function ($) {
+  // Load Template Panel
   $("#template_id").on("change", function () {
     const templateId = $(this).val();
-
     if (!templateId) return;
 
     $.ajax({
@@ -165,9 +163,42 @@ jQuery(document).ready(function ($) {
         }
       },
       error: function (xhr) {
-        console.error("AJAX Error:", xhr);
         alert("AJAX failed: " + xhr.status);
+        console.error("AJAX Error:", xhr);
       },
     });
+  });
+
+  // ==============================
+  // Inline Editable Selector Fields
+  // ==============================
+
+  $(document).on("click", ".ajdwp-editable-selector", function () {
+    const el = $(this);
+    const field = el.data("field");
+    const current = el.data("value");
+    const templateId = el.data("id");
+
+    let label = el.closest("tr").find("th").text();
+    const newVal = prompt(`Edit ${label}`, current);
+    if (newVal === null || newVal === current) return;
+
+    $.post(
+      AJDWP.ajax_url,
+      {
+        action: "ajdwp_update_single_template_field",
+        _ajax_nonce: AJDWP.nonce,
+        id: templateId,
+        field: field,
+        value: newVal,
+      },
+      function (res) {
+        if (res.success) {
+          el.text(newVal).data("value", newVal);
+        } else {
+          alert("❌ Update failed.");
+        }
+      }
+    );
   });
 });

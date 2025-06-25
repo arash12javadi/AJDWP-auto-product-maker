@@ -8,7 +8,7 @@ $templates = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}ajdwp_templates OR
 <!-- ===========================
      Template Selector Dropdown
 =========================== -->
-<hr style="margin: 40px 0;">
+
 <div style="margin-bottom: 20px;">
     <label for="template_id"><strong>🧩 Select a Template:</strong></label>
     <select name="template_id" id="template_id" style="min-width: 250px;">
@@ -28,14 +28,3 @@ $templates = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}ajdwp_templates OR
      Admin Controls for Template (AJAX Populated)
 =========================== -->
 <div id="selected-template-panel" style="margin-top: 30px;"></div>
-
-<hr style="margin: 40px 0;">
-
-<!-- ===========================
-     Add New Template Form
-=========================== -->
-<div>
-    <h3>➕ Add New Template</h3>
-    <input type="text" id="new-template-name" placeholder="Enter template name..." style="min-width: 250px;" />
-    <button id="add-template-btn" class="button button-primary">Add Template</button>
-</div>
