@@ -85,6 +85,7 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
             </div>
         <?php endif; ?>
     </div>
+    <p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>
     <div class="ajdwp-template-selectors" style="margin: 20px 0;">
         <h3>🔧 Scraping Selectors</h3>
         <table class="form-table">
@@ -153,21 +154,27 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
             <tbody>
                 <?php foreach ($urls as $url): ?>
                     <?php
-                    $product_id = $url->id;
+                    $custom_id = $url->id;
                     $product_url = $url->product_url;
 
-                    // ✅ Scrape product data dynamically (use 'static' method for speed)
-                    $scraped_data = ajdwp_apm_scrape_product_data($product_url, [], [], 'static');
+                    // 🔍 Find linked WooCommerce product ID from your URL
+                    $wc_product_id = ajdwp_apm_get_existing_product_id($product_url);
+                    $wc_product = $wc_product_id ? wc_get_product($wc_product_id) : null;
 
-                    $title = $scraped_data['title'] ?? '❌ Title not found';
-                    $price = $scraped_data['price'] ?? '❌';
-                    $image = $scraped_data['image'] ?? ajdwp_apm_get_image_preview_from_url($product_url);
+                    $title = $wc_product ? $wc_product->get_name() : '❌ Not found';
+                    $edit_link = $wc_product_id ? get_edit_post_link($wc_product_id) : '';
+                    $price = $wc_product ? $wc_product->get_price() : '❌';
+
+                    // Use your thumbnail preview fallback if needed
+                    $image = $wc_product && $wc_product->get_image_id()
+                        ? wp_get_attachment_image_url($wc_product->get_image_id(), 'thumbnail')
+                        : ajdwp_apm_get_image_preview_from_url($product_url);
                     ?>
-                    <tr data-id="<?= esc_attr($product_id) ?>">
+                    <tr data-id="<?= esc_attr($custom_id) ?>">
                         <th scope="row" class="check-column">
-                            <input type="checkbox" name="product_ids[]" value="<?= esc_attr($product_id) ?>">
+                            <input type="checkbox" name="product_ids[]" value="<?= esc_attr($custom_id) ?>">
                         </th>
-                        <td><?= esc_html($product_id) ?></td>
+                        <td><?= esc_html($wc_product_id ?: '—') ?></td>
                         <td>
                             <?php if (!empty($image)): ?>
                                 <img src="<?= esc_url($image) ?>" style="width:50px;height:auto;" />
@@ -175,24 +182,35 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                                 <span>No image</span>
                             <?php endif; ?>
                         </td>
-                        <td><?= esc_html($title) ?></td>
+                        <td id="product-title-<?php echo esc_attr($wc_product_id) ?>">
+                            <?php if ($edit_link): ?>
+                                <a href="<?= esc_url($edit_link) ?>" target="_blank"><?= esc_html($title) ?></a>
+                            <?php else: ?>
+                                <?= esc_html($title) ?>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <a href="<?= esc_url($product_url) ?>" target="_blank"><?= esc_html($product_url) ?></a>
                         </td>
-                        <?php
-                        $product_id = ajdwp_apm_get_existing_product_id($url->product_url);
-                        $wc_price = $product_id ? get_post_meta($product_id, '_price', true) : '—';
-                        ?>
-                        <td><?= esc_html($wc_price ?: '—') ?></td>
-
+                        <td id="product-price-<?php echo esc_attr($wc_product_id) ?>">£<?= esc_html($price) ?></td>
                         <td>
-                            <button type="button" class="button button-small ajdwp-action-delete" data-id="<?= esc_attr($product_id) ?>">🗑 Delete</button>
-                            <button type="button" class="button button-small ajdwp-action-update-price" data-id="<?= esc_attr($product_id) ?>">💰 Update Price</button>
-                            <button type="button" class="button button-small ajdwp-action-full-update" data-id="<?= esc_attr($product_id) ?>">♻ Full Update</button>
+                            <button type="button" class="button button-small ajdwp-action-delete" data-id="<?= esc_attr($custom_id) ?>">🗑 Delete</button>
+                            <button type="button" class="button button-small ajdwp-action-update-price"
+                                data-id="<?= esc_attr($custom_id) ?>"
+                                data-product-id="<?= esc_attr($wc_product_id) ?>">
+                                💰 Update Price
+                            </button>
+                            <button type="button" class="button button-small ajdwp-action-full-update"
+                                data-id="<?= esc_attr($custom_id) ?>"
+                                data-product-id="<?= esc_attr($wc_product_id) ?>">
+                                ♻ Full Update
+                            </button>
+
                         </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
+
         </table>
     </form>
 
@@ -258,6 +276,9 @@ add_action('wp_ajax_ajdwp_delete_product_url', function () {
 
 // -----------------------------------
 
+// ========================
+// Update Price (With Instant UI Feedback)
+// ========================
 add_action('wp_ajax_ajdwp_update_price', function () {
     check_ajax_referer('ajdwp_template_nonce');
     global $wpdb;
@@ -272,63 +293,155 @@ add_action('wp_ajax_ajdwp_update_price', function () {
     $product_id = ajdwp_apm_get_existing_product_id($url);
     if (!$product_id) wp_send_json_error(['message' => 'Product not found']);
 
-    $data = ajdwp_apm_scrape_product_data($url, [], [], 'static');
+    // 🟢 Get template ID and scraping method
+    $template_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT template_id FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
+        $id
+    ));
+
+    $scrape_method = $wpdb->get_var($wpdb->prepare(
+        "SELECT scrape_method FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
+        $template_id
+    )) ?: 'auto';
+
+    // 🟢 Scrape just the price
+    $data = ajdwp_apm_scrape_product_data($url, [], [], $scrape_method);
     if (!$data || empty($data['price'])) {
         wp_send_json_error(['message' => 'No price found']);
     }
 
-    update_post_meta($product_id, '_price', $data['price']);
-    update_post_meta($product_id, '_regular_price', $data['price']);
+    // 🟢 Update WooCommerce sale price
+    update_post_meta($product_id, '_sale_price', $data['price']);
+    update_post_meta($product_id, '_price', $data['price']); // sync
 
-    wp_send_json_success(['price' => $data['price']]);
+    // 🟢 Make sure WC price is correctly saved before sending back
+    $confirmed_price = get_post_meta($product_id, '_sale_price', true);
+
+    wp_send_json_success([
+        'price' => $data['price'],
+        'product_id' => $product_id,
+    ]);
 });
+
+
 
 // -----------------------------------
 
 add_action('wp_ajax_ajdwp_full_update_product', function () {
     check_ajax_referer('ajdwp_template_nonce');
+
     global $wpdb;
 
     $id = intval($_POST['id']);
+    if (!$id) {
+        error_log('❌ Missing product ID.');
+        wp_send_json_error(['message' => 'Missing ID']);
+    }
+
     $row = $wpdb->get_row($wpdb->prepare(
         "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
         $id
     ));
-    if (!$row) wp_send_json_error(['message' => 'Product not found']);
+    if (!$row) {
+        error_log("❌ No URL row found for ID: $id");
+        wp_send_json_error(['message' => 'Product not found']);
+    }
 
-    $data = ajdwp_apm_scrape_product_data($row->product_url, [], [], 'static');
+    $template_id = intval($row->template_id);
+    $template = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = $template_id");
+
+    if (!$template) {
+        error_log("❌ Template not found for ID: $template_id");
+        wp_send_json_error(['message' => 'Template not found']);
+    }
+
+    $scrape_method = $template->scrape_method ?? 'auto';
+
+    $selectors = [
+        'title_selector' => $template->title_selector ?? '',
+        'short_desc_selector' => $template->short_desc_selector ?? '',
+        'long_desc_selector' => $template->long_desc_selector ?? '',
+        'main_image_selector' => $template->main_image_selector ?? '',
+        'gallery_image_selectors' => $template->gallery_image_selectors ?? '',
+        'price_selector' => $template->price_selector ?? '',
+        'price_multiplier' => $template->price_multiplier ?? '',
+    ];
+
+    $data = ajdwp_apm_scrape_product_data($row->product_url, $selectors, [], $scrape_method);
     if (!$data || empty($data['title'])) {
+        error_log("❌ Scrape failed for URL: " . $row->product_url);
         wp_send_json_error(['message' => 'Scrape failed']);
     }
 
     $product_id = ajdwp_apm_get_existing_product_id($row->product_url);
-    if (!$product_id) wp_send_json_error(['message' => 'Product not found']);
+    if (!$product_id) {
+        error_log("❌ WooCommerce product not found for URL: " . $row->product_url);
+        wp_send_json_error(['message' => 'Product not found']);
+    }
 
-    // Update WooCommerce product
     $product = wc_get_product($product_id);
-    if (!$product) wp_send_json_error(['message' => 'Product object missing']);
+    if (!$product) {
+        error_log("❌ wc_get_product failed for ID: $product_id");
+        wp_send_json_error(['message' => 'Product object missing']);
+    }
 
     $product->set_name($data['title']);
-    $product->set_description($data['long_description']);
-    $product->set_short_description($data['short_description']);
+    $product->set_description($data['long_description'] ?? '');
+    $product->set_short_description($data['short_description'] ?? '');
     $product->set_price($data['price']);
     $product->set_regular_price($data['price']);
+    $product->set_sale_price($data['price']);
     $product->set_status('publish');
     $product->save();
 
-    // Optionally update image and gallery too (reuse your image sideload function)
+    // image handlers
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
 
-    // Update template row data
+    $image_url = $data['image'] ?? '';
+    if (!empty($image_url)) {
+        $media_id = ajdwp_apm_sideload_image($image_url, $product_id);
+        if ($media_id) {
+            $product->set_image_id($media_id);
+            $product->save();
+        }
+    }
+
+    $gallery_urls = $data['gallery'] ?? [];
+    if (!empty($gallery_urls) && is_array($gallery_urls)) {
+        $gallery_ids = [];
+
+        foreach ($gallery_urls as $url) {
+            $gallery_id = ajdwp_apm_sideload_image($url, $product_id);
+            if ($gallery_id) {
+                $gallery_ids[] = $gallery_id;
+            }
+        }
+
+        if (!empty($gallery_ids)) {
+            $product->set_gallery_image_ids($gallery_ids);
+            $product->save();
+        }
+    }
+
+
+    // Update URL record
     $wpdb->update(
         "{$wpdb->prefix}ajdwp_template_urls",
         [
             'title' => sanitize_text_field($data['title']),
             'price' => sanitize_text_field($data['price']),
-            'image' => esc_url_raw($data['image']),
+            'image' => esc_url_raw($data['image'] ?? ''),
             'last_scraped' => current_time('mysql')
         ],
         ['id' => $id]
     );
 
-    wp_send_json_success(['message' => 'Product fully updated']);
+    wp_send_json_success([
+        'message' => 'Product fully updated',
+        'price' => $data['price'],
+        'title' => $data['title'],
+        'edit_link' => get_edit_post_link($product_id),
+    ]);
 });

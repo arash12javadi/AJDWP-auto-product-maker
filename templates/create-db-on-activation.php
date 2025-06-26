@@ -40,14 +40,18 @@ function ajdwp_apm_create_db_tables()
 
   // URLs Table
   $sql_urls = "CREATE TABLE $table_urls (
-        id INT NOT NULL AUTO_INCREMENT,
-        template_id INT NOT NULL,
-        product_url TEXT NOT NULL,
-        last_scraped DATETIME DEFAULT NULL,
-        status VARCHAR(50) DEFAULT NULL,
-        PRIMARY KEY (id),
-        INDEX (template_id)
-    ) $charset_collate;";
+      id INT NOT NULL AUTO_INCREMENT,
+      template_id INT NOT NULL,
+      product_url TEXT NOT NULL,
+      title TEXT,
+      price VARCHAR(50),
+      image TEXT,
+      last_scraped DATETIME DEFAULT NULL,
+      status VARCHAR(50) DEFAULT NULL,
+      PRIMARY KEY (id),
+      INDEX (template_id)
+  ) $charset_collate;";
+
   dbDelta($sql_urls);
 
   // Insert Default Template if not exists
