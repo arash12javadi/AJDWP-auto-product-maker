@@ -27,7 +27,6 @@ function ajdwp_apm_get_rendered_html($url)
         file_put_contents(AJDWPAPM_PATH . 'debug-rendered.html', $output);
     }
 
-
     return $output;
 }
 

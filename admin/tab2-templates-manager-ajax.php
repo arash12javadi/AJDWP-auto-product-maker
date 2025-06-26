@@ -1,6 +1,53 @@
 <?php
 
 // ============================
+// AJAX: Rename and Delete Templates
+// ============================
+
+add_action('wp_ajax_ajdwp_update_template', 'ajdwp_apm_ajax_update_template');
+add_action('wp_ajax_ajdwp_delete_template', 'ajdwp_apm_ajax_delete_template');
+
+
+function ajdwp_apm_ajax_update_template()
+{
+    check_ajax_referer('ajdwp_template_nonce');
+    global $wpdb;
+
+    $id   = intval($_POST['id']);
+    $name = sanitize_text_field($_POST['name']);
+
+    $wpdb->update(
+        "{$wpdb->prefix}ajdwp_templates",
+        ['name' => $name],
+        ['id'   => $id]
+    );
+
+    wp_send_json_success();
+}
+
+function ajdwp_apm_ajax_delete_template()
+{
+    check_ajax_referer('ajdwp_template_nonce');
+    global $wpdb;
+
+    $id = intval($_POST['id']);
+
+    // Move associated URLs to Default Template (ID 1)
+    $wpdb->update("{$wpdb->prefix}ajdwp_template_urls", [
+        'template_id' => 1
+    ], ['template_id' => $id]);
+
+    // Optionally clean up associated selectors
+    $wpdb->delete("{$wpdb->prefix}ajdwp_template_selectors", ['template_id' => $id]);
+
+    // Delete template itself
+    $wpdb->delete("{$wpdb->prefix}ajdwp_templates", ['id' => $id]);
+
+    wp_send_json_success();
+}
+
+
+// ============================
 // AJAX: Load Template Panel
 // ============================
 add_action('wp_ajax_ajdwp_get_template_panel', function () {
@@ -156,7 +203,7 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
 
 
 // ============================
-// AJAX: Update Single Template Field
+// AJAX: Update element selector Fields of the templates
 // ============================
 
 add_action('wp_ajax_ajdwp_update_single_template_field', function () {
@@ -285,28 +332,3 @@ add_action('wp_ajax_ajdwp_full_update_product', function () {
 
     wp_send_json_success(['message' => 'Product fully updated']);
 });
-
-
-
-// ============================
-// AJAX: Load Templates defaults
-// ============================
-
-add_action('wp_ajax_ajdwp_get_template_data', 'ajdwp_get_template_data_callback');
-
-function ajdwp_get_template_data_callback()
-{
-    check_ajax_referer('ajdwp_template_nonce');
-
-    global $wpdb;
-    $template_id = intval($_POST['template_id']);
-    $table = $wpdb->prefix . 'ajdwp_templates';
-
-    $template = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $template_id));
-
-    if ($template) {
-        wp_send_json_success($template);
-    } else {
-        wp_send_json_error(['message' => 'Template not found']);
-    }
-}
