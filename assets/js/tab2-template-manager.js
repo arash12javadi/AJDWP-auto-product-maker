@@ -1,4 +1,68 @@
 jQuery(function ($) {
+  // ==============================
+  // Template URL CRUD
+  // ==============================
+
+  // Load Template Panel
+  $("#template_id").on("change", function () {
+    const templateId = $(this).val();
+    if (!templateId) return;
+
+    $.ajax({
+      method: "POST",
+      url: AJDWP_tab2.ajax_url,
+      data: {
+        action: "ajdwp_get_template_panel",
+        _ajax_nonce: AJDWP_tab2.nonce,
+        template_id: templateId,
+      },
+      success: function (response) {
+        if (response.success) {
+          $("#selected-template-panel").html(response.data.html);
+        } else {
+          alert(response.data.message || "Unknown error");
+        }
+      },
+      error: function (xhr) {
+        alert("AJAX failed: " + xhr.status);
+        console.error("AJAX Error:", xhr);
+      },
+    });
+  });
+
+  // ==============================
+  // Inline Editable Selector Fields
+  // ==============================
+
+  $(document).on("click", ".ajdwp-editable-selector", function () {
+    const el = $(this);
+    const field = el.data("field");
+    const current = el.data("value");
+    const templateId = el.data("id");
+
+    let label = el.closest("tr").find("th").text();
+    const newVal = prompt(`Edit ${label}`, current);
+    if (newVal === null || newVal === current) return;
+
+    $.post(
+      AJDWP_tab2.ajax_url,
+      {
+        action: "ajdwp_update_single_template_field",
+        _ajax_nonce: AJDWP_tab2.nonce,
+        id: templateId,
+        field: field,
+        value: newVal,
+      },
+      function (res) {
+        if (res.success) {
+          el.text(newVal).data("value", newVal);
+        } else {
+          alert("❌ Update failed.");
+        }
+      }
+    );
+  });
+
   // ========================
   // Delete Single Product
   // ========================
@@ -7,10 +71,10 @@ jQuery(function ($) {
     if (!confirm("Are you sure you want to delete this item?")) return;
 
     $.post(
-      AJDWP.ajax_url,
+      AJDWP_tab2.ajax_url,
       {
         action: "ajdwp_delete_product_url",
-        _ajax_nonce: AJDWP.nonce,
+        _ajax_nonce: AJDWP_tab2.nonce,
         id: productId,
       },
       function (res) {
@@ -30,10 +94,10 @@ jQuery(function ($) {
     const productId = $(this).data("id");
 
     $.post(
-      AJDWP.ajax_url,
+      AJDWP_tab2.ajax_url,
       {
         action: "ajdwp_update_price",
-        _ajax_nonce: AJDWP.nonce,
+        _ajax_nonce: AJDWP_tab2.nonce,
         id: productId,
       },
       function (res) {
@@ -53,10 +117,10 @@ jQuery(function ($) {
     const productId = $(this).data("id");
 
     $.post(
-      AJDWP.ajax_url,
+      AJDWP_tab2.ajax_url,
       {
         action: "ajdwp_full_update_product",
-        _ajax_nonce: AJDWP.nonce,
+        _ajax_nonce: AJDWP_tab2.nonce,
         id: productId,
       },
       function (res) {
@@ -86,10 +150,10 @@ jQuery(function ($) {
     }
 
     $.post(
-      AJDWP.ajax_url,
+      AJDWP_tab2.ajax_url,
       {
         action: "ajdwp_bulk_product_action",
-        _ajax_nonce: AJDWP.nonce,
+        _ajax_nonce: AJDWP_tab2.nonce,
         sub_action: action,
         ids: ids,
       },

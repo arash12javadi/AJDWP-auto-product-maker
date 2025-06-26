@@ -2,7 +2,13 @@
 global $wpdb;
 
 // Fetch all templates sorted by name
-$templates = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}ajdwp_templates ORDER BY name ASC");
+$templates = $wpdb->get_results("
+    SELECT * FROM {$wpdb->prefix}ajdwp_templates
+    ORDER BY 
+        CASE WHEN name = 'Default Template' THEN 0 ELSE 1 END,
+        name ASC
+");
+
 ?>
 
 <!-- ===========================

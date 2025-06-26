@@ -23,7 +23,10 @@ function ajdwp_apm_get_rendered_html($url)
     }
 
     // Optional: Save rendered HTML for inspection
-    file_put_contents(AJDWPAPM_PATH . 'debug-rendered.html', $output);
+    if (defined('AJDWPAPM_DEBUG') && AJDWPAPM_DEBUG === true) {
+        file_put_contents(AJDWPAPM_PATH . 'debug-rendered.html', $output);
+    }
+
 
     return $output;
 }

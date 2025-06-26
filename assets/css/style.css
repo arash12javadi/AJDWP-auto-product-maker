@@ -1,6 +1,6 @@
-.page-setting-sections {
-  background-color: #fff;
+.ajdwp-tab-content {
   padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-top: none;
 }

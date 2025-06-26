@@ -15,7 +15,7 @@ function ajdwp_apm_ajax_add_template()
     $table = "{$wpdb->prefix}ajdwp_templates";
 
     $data = [
-        'name'                     => sanitize_text_field($_POST['name'] ?? ''),
+        'name'                    => sanitize_text_field($_POST['name'] ?? ''),
         'title_selector'          => sanitize_text_field($_POST['title_selector'] ?? ''),
         'short_desc_selector'     => sanitize_text_field($_POST['short_desc_selector'] ?? ''),
         'long_desc_selector'      => sanitize_text_field($_POST['long_desc_selector'] ?? ''),

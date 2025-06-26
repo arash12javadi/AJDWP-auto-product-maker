@@ -132,33 +132,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
 <!-- ===========================
      Product Scraping Form
 =========================== -->
-<form method="post">
+<form method="post" id="ajdwp-scrape-form">
     <?php wp_nonce_field('ajdwp_apm_action', 'ajdwp_apm_nonce'); ?>
     <input type="hidden" name="action_stage" value="preview">
 
     <table class="form-table">
-        <tr>
-            <th><label for="scrape_method">Scraping Method:</label></th>
-            <td>
-                <select name="scrape_method">
-                    <option value="auto" selected>Auto (Try HTML first)</option>
-                    <option value="static">Static (faster, for simple sites)</option>
-                    <option value="dynamic">Dynamic (JS-rendered sites)</option>
-                </select>
-            </td>
-        </tr>
 
         <tr>
-            <th><label for="template_select">Add to Template:</label></th>
+            <th><label for="template_select">Select Template:</label></th>
             <td>
-                <select name="template_select">
+                <select name="template_select" id="template-select-dropdown">
                     <?php
                     global $wpdb;
-                    $templates = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}ajdwp_templates ORDER BY name ASC");
+                    $table = $wpdb->prefix . 'ajdwp_templates';
+                    $templates = $wpdb->get_results("
+                SELECT * FROM $table
+                ORDER BY 
+                    CASE WHEN name = 'Default Template' THEN 0 ELSE 1 END,
+                    name ASC
+            ");
                     foreach ($templates as $template) {
                         echo '<option value="' . esc_attr($template->id) . '">' . esc_html($template->name) . '</option>';
                     }
                     ?>
+                </select>
+            </td>
+        </tr>
+
+
+        <tr>
+            <th><label for="scrape_method">Scraping Method:</label></th>
+            <td>
+                <select name="scrape_method" id="scrape_method">
+                    <option value="auto" selected>Auto (Try HTML first)</option>
+                    <option value="static">Static (faster, for simple sites)</option>
+                    <option value="dynamic">Dynamic (JS-rendered sites)</option>
                 </select>
             </td>
         </tr>
@@ -181,17 +189,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
         foreach ($fields as $key => $label):
         ?>
             <tr>
-                <th><label><?php echo esc_html($label); ?>:</label></th>
+                <th><label for="selector_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?>:</label></th>
                 <td>
-                    <input type="text" name="selector_<?php echo esc_attr($key); ?>" />
-                    <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>"> Ignore if not found</label>
+                    <input type="text" name="selector_<?php echo esc_attr($key); ?>" id="selector_<?php echo esc_attr($key); ?>" />
+                    <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>" id="skip_<?php echo esc_attr($key); ?>"> Ignore if not found</label>
                 </td>
             </tr>
         <?php endforeach; ?>
 
         <tr>
             <th><label for="selector_price_calc">Price Multiplier (e.g. x1.2 or +5):</label></th>
-            <td><input type="text" name="selector_price_calc" /></td>
+            <td><input type="text" name="selector_price_calc" id="selector_price_calc" /></td>
         </tr>
     </table>
 

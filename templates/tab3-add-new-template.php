@@ -9,9 +9,9 @@
     <input type="text" id="new-template-name" placeholder="Enter template name..." style="min-width: 250px;" />
     <br><br>
     <select name="scrape_method">
-        <option value="auto">Auto</option>
-        <option value="html">HTML Only</option>
-        <option value="js">JavaScript (Playwright)</option>
+        <option value="auto">Auto (Try HTML first)</option>
+        <option value="static">Static (faster, for simple sites)</option>
+        <option value="dynamic">Dynamic (JS-rendered sites)</option>
     </select>
     <br><br>
     <input type="text" name="title_selector" placeholder="Title Selector"><br><br>
