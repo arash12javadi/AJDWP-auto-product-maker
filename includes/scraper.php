@@ -104,9 +104,7 @@ function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields
         if ($field === 'gallery') {
             $gallery_images = [];
             foreach ($found_elements as $img) {
-                $high_res = $img->getAttribute('data-large_image') ??
-                    $img->getAttribute('data-src') ??
-                    $img->getAttribute('src');
+                $high_res = $img->getAttribute('data-large_image') ?? $img->getAttribute('data-src') ?? $img->getAttribute('src');
                 if (!empty($high_res) && strpos($high_res, '-150x150') === false) {
                     $gallery_images[] = $high_res;
                 }
@@ -121,37 +119,32 @@ function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields
             if (str_contains($actual_selector, 'meta[')) {
                 $data[$field] = $found->content ?? '';
             } elseif ($field === 'image') {
-                $image = '';
-                if ($found && !empty($found->src)) {
-                    $src = trim($found->src);
-
-                    if (strpos($src, 'http') === 0) {
-                        $image = $src;
-                    } else {
-                        $parsed_url = parse_url($url);
-                        $base = $parsed_url['scheme'] . '://' . $parsed_url['host'];
-                        $image = $base . '/' . ltrim($src, '/');
-                    }
+                $src = trim($found->src ?? '');
+                if (!empty($src)) {
+                    $data[$field] = strpos($src, 'http') === 0 ? $src : (parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST) . '/' . ltrim($src, '/'));
+                } else {
+                    $data[$field] = '';
                 }
-                $data[$field] = $image;
             } elseif ($field === 'price') {
-                $ins_price_el = $dom->find('p.price ins span bdi', 0);
-                $del_price_el = $dom->find('p.price del span bdi', 0);
+                // Extract prices
+                $ins_el = $dom->find('p.price ins span bdi', 0);
+                $del_el = $dom->find('p.price del span bdi', 0);
 
-                $extract_price = function ($el) {
-                    if (!$el) return '';
+                $extract_clean_price = function ($el) {
+                    if (!$el) return 0.00;
                     $text = strip_tags($el->innertext ?? '');
-                    $text = preg_replace('/[^\d.,]/', '', $text);
-                    return str_replace(',', '.', trim($text));
+                    $text = preg_replace('/[^0-9.,]/', '', $text);
+                    $text = str_replace(',', '.', $text); // optional for EU-style prices
+                    return floatval($text);
                 };
 
-                $data['price'] = $extract_price($ins_price_el);
-                $data['price_regular'] = $extract_price($del_price_el);
+                $data['price'] = $extract_clean_price($ins_el);
+                $data['price_regular'] = $extract_clean_price($del_el);
             } else {
                 $data[$field] = trim($found->plaintext ?? '');
             }
         } else {
-            $data[$field] = '';
+            $data[$field] = $field === 'price' ? 0.00 : '';
         }
     }
 

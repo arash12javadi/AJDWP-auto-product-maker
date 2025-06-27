@@ -19,10 +19,12 @@ jQuery(function ($) {
       success: function (response) {
         if (response.success) {
           $("#selected-template-panel").html(response.data.html);
+          $(document).trigger("ajdwp-panel-loaded"); // 🔄 Rebind search/sort
         } else {
           alert(response.data.message || "Unknown error");
         }
       },
+
       error: function (xhr) {
         alert("AJAX failed: " + xhr.status);
         console.error("AJAX Error:", xhr);
@@ -88,7 +90,7 @@ jQuery(function ($) {
   });
 
   // ========================
-  // Update Price (With Instant UI Feedback)
+  // Update Price
   // ========================
   $(document).on("click", ".ajdwp-action-update-price", function () {
     const button = $(this);
@@ -232,4 +234,89 @@ jQuery(function ($) {
       }
     );
   });
+});
+
+// ========================
+// Search & Sort Products in the Template Manager
+// ========================
+function ajdwpInitSearchAndSort() {
+  const $ = jQuery;
+  let timer;
+  let sortField = "id";
+  let sortOrder = "asc";
+
+  // 🔁 Fetch products via AJAX with current query and sort
+  function fetchProducts(query = "") {
+    const templateId = $("#ajdwp-product-search").data("template-id");
+    if (!templateId) return;
+
+    $.ajax({
+      url: ajaxurl,
+      method: "POST",
+      data: {
+        action: "ajdwp_search_template_products",
+        security: AJDWP_tab2.nonce,
+        template_id: templateId,
+        query: query,
+        sort_field: sortField,
+        sort_order: sortOrder,
+      },
+      success: function (res) {
+        if (res.success) {
+          $("#ajdwp-products-tbody").html(res.data.html);
+          updateSortIcons(); // 🟢 Ensure active arrow remains after refresh
+        } else {
+          console.warn("AJAX search error:", res.data.message);
+        }
+      },
+      error: function (xhr) {
+        console.error("AJAX error:", xhr);
+      },
+    });
+  }
+
+  // 🔁 Update arrow icons after each fetch
+  function updateSortIcons() {
+    $(".sortable").removeClass("asc desc");
+    $(`.sortable[data-sort="${sortField}"]`).addClass(sortOrder);
+  }
+
+  // 🔍 Live search input (with debounce)
+  $(document)
+    .off("input", "#ajdwp-product-search")
+    .on("input", "#ajdwp-product-search", function () {
+      const q = $(this).val();
+      clearTimeout(timer);
+      timer = setTimeout(() => fetchProducts(q), 300);
+    });
+
+  // 🔃 Sort column headers on click
+  $(document)
+    .off("click", ".sortable")
+    .on("click", ".sortable", function () {
+      const newField = $(this).data("sort");
+      if (!newField) return;
+
+      if (sortField === newField) {
+        sortOrder = sortOrder === "asc" ? "desc" : "asc";
+      } else {
+        sortField = newField;
+        sortOrder = "asc";
+      }
+
+      fetchProducts($("#ajdwp-product-search").val());
+    });
+
+  // ✅ Initial sort class on load
+  updateSortIcons();
+}
+
+// ✅ Run on first page load
+jQuery(document).ready(function () {
+  ajdwpInitSearchAndSort();
+});
+
+// ✅ Rebind after AJAX panel render
+jQuery(document).on("ajdwp-panel-loaded", function () {
+  ajdwpInitSearchAndSort();
 });
