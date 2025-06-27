@@ -10,13 +10,13 @@ jQuery(function ($) {
       if (!templateId) return;
 
       $.ajax({
-        url: AJDWP_tab1.ajax_url, // ← FIXED
+        url: AJDWP_tab1.ajax_url,
         type: "POST",
         dataType: "json",
         data: {
           action: "ajdwp_get_template_data",
           template_id: templateId,
-          _ajax_nonce: AJDWP_tab1.nonce, // ← FIXED
+          _ajax_nonce: AJDWP_tab1.nonce,
         },
         success: function (response) {
           if (response.success) {
@@ -24,8 +24,8 @@ jQuery(function ($) {
 
             // Set values
             $("#selector_title").val(d.title_selector);
-            $("#selector_short").val(d.short_desc_selector);
-            $("#selector_long").val(d.long_desc_selector);
+            $("#selector_short_description").val(d.short_description_selector);
+            $("#selector_long_description").val(d.long_description_selector);
             $("#selector_image").val(d.main_image_selector);
             $("#selector_gallery").val(d.gallery_image_selectors);
             $("#selector_price").val(d.price_selector);
@@ -34,8 +34,8 @@ jQuery(function ($) {
 
             // Check "Ignore if not found" if field is empty
             $("#skip_title").prop("checked", !d.title_selector);
-            $("#skip_short").prop("checked", !d.short_desc_selector);
-            $("#skip_long").prop("checked", !d.long_desc_selector);
+            $("#skip_short_description").prop("checked", !d.short_description_selector);
+            $("#skip_long_description").prop("checked", !d.long_description_selector);
             $("#skip_image").prop("checked", !d.main_image_selector);
             $("#skip_gallery").prop("checked", !d.gallery_image_selectors);
             $("#skip_price").prop("checked", !d.price_selector);

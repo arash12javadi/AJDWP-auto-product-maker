@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
         // Collect selectors
         $selectors = [
             'title'             => sanitize_text_field($_POST['selector_title'] ?? ''),
-            'short_description' => sanitize_text_field($_POST['selector_short'] ?? ''),
-            'long_description'  => sanitize_text_field($_POST['selector_long'] ?? ''),
+            'short_description' => sanitize_text_field($_POST['selector_short_description'] ?? ''),
+            'long_description'  => sanitize_text_field($_POST['selector_long_description'] ?? ''),
             'image'             => sanitize_text_field($_POST['selector_image'] ?? ''),
             'gallery'           => sanitize_text_field($_POST['selector_gallery'] ?? ''),
             'price'             => sanitize_text_field($_POST['selector_price'] ?? ''),
@@ -107,6 +107,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
                     <?php foreach ($selectors as $key => $val): ?>
                         <input type="hidden" name="selector_<?php echo esc_attr($key); ?>" value="<?php echo esc_attr($val); ?>">
                     <?php endforeach; ?>
+
+                    <?php foreach ($skip_fields as $skip): ?>
+                        <input type="hidden" name="skip_<?php echo esc_attr($skip); ?>" value="1">
+                    <?php endforeach; ?>
+
                     <br>
                     <button class="button button-primary">✅ Confirm and Create Product</button>
                 </form>
@@ -178,13 +183,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
 
         <?php
         $fields = [
-            'title'   => 'Title Selector',
-            'short'   => 'Short Description Selector',
-            'long'    => 'Long Description Selector',
-            'image'   => 'Main Image Selector',
-            'gallery' => 'Gallery Image Selectors (comma-separated)',
-            'price'   => 'Price Selector',
+            'title'             => 'Title Selector',
+            'short_description' => 'Short Description Selector',
+            'long_description'  => 'Long Description Selector',
+            'image'             => 'Main Image Selector',
+            'gallery'           => 'Gallery Image Selectors (comma-separated)',
+            'price'             => 'Price Selector',
         ];
+
 
         foreach ($fields as $key => $label):
         ?>
