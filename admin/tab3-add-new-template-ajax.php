@@ -9,15 +9,15 @@ function ajdwp_apm_ajax_add_template()
     $table = "{$wpdb->prefix}ajdwp_templates";
 
     $data = [
-        'name'                    => sanitize_text_field($_POST['name'] ?? ''),
-        'title_selector'          => sanitize_text_field($_POST['title_selector'] ?? ''),
-        'short_desc_selector'     => sanitize_text_field($_POST['short_desc_selector'] ?? ''),
-        'long_desc_selector'      => sanitize_text_field($_POST['long_desc_selector'] ?? ''),
-        'main_image_selector'     => sanitize_text_field($_POST['main_image_selector'] ?? ''),
-        'gallery_image_selectors' => sanitize_text_field($_POST['gallery_image_selectors'] ?? ''),
-        'price_selector'          => sanitize_text_field($_POST['price_selector'] ?? ''),
-        'price_multiplier'        => sanitize_text_field($_POST['price_multiplier'] ?? ''),
-        'scrape_method'           => sanitize_text_field($_POST['scrape_method'] ?? 'auto'),
+        'name'                          => sanitize_text_field($_POST['name'] ?? ''),
+        'title_selector'                => sanitize_text_field($_POST['title_selector'] ?? ''),
+        'short_description_selector'    => sanitize_text_field($_POST['short_description_selector'] ?? ''),
+        'long_description_selector'     => sanitize_text_field($_POST['long_description_selector'] ?? ''),
+        'main_image_selector'           => sanitize_text_field($_POST['main_image_selector'] ?? ''),
+        'gallery_image_selectors'       => sanitize_text_field($_POST['gallery_image_selectors'] ?? ''),
+        'price_selector'                => sanitize_text_field($_POST['price_selector'] ?? ''),
+        'price_multiplier'              => sanitize_text_field($_POST['price_multiplier'] ?? ''),
+        'scrape_method'                 => sanitize_text_field($_POST['scrape_method'] ?? 'auto'),
     ];
 
     // Insert into database
