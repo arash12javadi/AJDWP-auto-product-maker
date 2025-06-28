@@ -61,3 +61,16 @@ function ajdwp_apm_get_image_preview_from_url($url)
     $data = ajdwp_apm_scrape_product_data($url, [], [], 'static'); // Use 'static' for speed
     return isset($data['image']) ? esc_url_raw($data['image']) : '';
 }
+
+// ============================
+// AJAX: Get Template Selectors
+// ============================
+
+function ajdwp_apm_get_template_selectors($template_id)
+{
+    global $wpdb;
+    $table = $wpdb->prefix . 'ajdwp_selectors';
+    $selectors = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE template_id = %d", $template_id), ARRAY_A);
+
+    return $selectors ?: [];
+}

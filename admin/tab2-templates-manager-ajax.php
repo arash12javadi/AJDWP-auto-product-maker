@@ -129,11 +129,16 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                 <label for="ajdwp-bulk-action-top" class="screen-reader-text">Select bulk action</label>
                 <select name="ajdwp_bulk_action" id="ajdwp-bulk-action-top">
                     <option value="-1">Bulk actions</option>
-                    <option value="delete">Delete</option>
-                    <option value="update_price">Update Price</option>
-                    <option value="full_update">Full Update</option>
+                    <option value="delete_all">Delete</option>
+                    <option value="update_price_all">Update Price</option>
+                    <option value="full_update_all">Full Update</option>
                 </select>
                 <button type="button" class="button action" id="ajdwp-do-bulk-action">Apply</button>
+            </div>
+            <div class="price-multiplier" style="float: left;">
+                <label for="input_price_multiplier_all">Price Multiplier:</label>
+                <input type="text" name="input_price_multiplier_all" id="input_price_multiplier_all" value="price*1" />
+                <button type="button" class="button action" id="ajdwp-bulk-multiplier-all">Multiply All</button>
             </div>
             <div style="float:right;">
                 <label for="ajdwp-product-search">Search Products:</label>
@@ -177,7 +182,10 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                     ?>
                     <tr data-id="<?= esc_attr($custom_id) ?>">
                         <th scope="row" class="check-column">
-                            <input type="checkbox" name="product_ids[]" value="<?= esc_attr($custom_id) ?>">
+                            <?php if ($wc_product_id): ?>
+                                <input type="checkbox" name="product_ids[]" value="<?= esc_attr($wc_product_id) ?>">
+                            <?php endif; ?>
+
                         </th>
                         <td><?= esc_html($wc_product_id ?: '—') ?></td>
                         <td>
@@ -328,7 +336,6 @@ add_action('wp_ajax_ajdwp_update_price', function () {
         'product_id' => $product_id,
     ]);
 });
-
 
 
 // -----------------------------------
@@ -499,7 +506,10 @@ add_action('wp_ajax_ajdwp_search_template_products', function () {
     ?>
         <tr data-id="<?= esc_attr($custom_id) ?>">
             <th scope="row" class="check-column">
-                <input type="checkbox" name="product_ids[]" value="<?= esc_attr($custom_id) ?>">
+                <?php if ($wc_product_id): ?>
+                    <input type="checkbox" name="product_ids[]" value="<?= esc_attr($wc_product_id) ?>">
+                <?php endif; ?>
+
             </th>
             <td><?= esc_html($wc_product_id ?: '—') ?></td>
             <td>
@@ -540,3 +550,101 @@ add_action('wp_ajax_ajdwp_search_template_products', function () {
     $html = ob_get_clean();
     wp_send_json_success(['html' => $html]);
 });
+
+// ============================
+// AJAX: Bulk Product Actions
+// =============================
+add_action('wp_ajax_ajdwp_bulk_product_action', 'ajdwp_handle_bulk_product_action');
+function ajdwp_handle_bulk_product_action()
+{
+    // check_ajax_referer('ajdwp_nonce', '_ajax_nonce');
+    check_ajax_referer('ajdwp_template_nonce');
+    $ids = $_POST['ids'] ?? [];
+    $action = sanitize_text_field($_POST['sub_action'] ?? '');
+
+    if (empty($ids) || !is_array($ids)) {
+        wp_send_json_error(['message' => 'Invalid product IDs.']);
+    }
+
+    foreach ($ids as $product_id) {
+        $product_id = intval($product_id);
+        if (!$product_id) continue;
+
+        switch ($action) {
+            case 'delete_all':
+                wp_delete_post($product_id, true);
+                break;
+
+            case 'update_price_all':
+                // 🔁 Re-scrape only price and update
+                $source_url = get_post_meta($product_id, '_ajdwp_source_url', true);
+                $template_id = get_post_meta($product_id, '_ajdwp_template_id', true);
+
+                $selectors = ajdwp_apm_get_template_selectors($template_id);
+                $price_selector = ['price' => $selectors['price'] ?? '', 'price_calc' => $selectors['price_calc'] ?? ''];
+                $price_data = ajdwp_apm_scrape_product_data($source_url, $price_selector, ['title', 'image', 'gallery', 'short_description', 'long_description'], 'auto');
+
+                if (!empty($price_data['price'])) {
+                    $product = wc_get_product($product_id);
+                    if ($product) {
+                        $product->set_sale_price($price_data['price']);
+                        $product->set_price($price_data['price']);
+                        $product->save();
+                    }
+                }
+                break;
+
+            case 'full_update_all':
+                // 🔁 Re-scrape full data and update
+                $source_url = get_post_meta($product_id, '_ajdwp_source_url', true);
+                $template_id = get_post_meta($product_id, '_ajdwp_template_id', true);
+                $selectors = ajdwp_apm_get_template_selectors($template_id);
+                $scraped = ajdwp_apm_scrape_product_data($source_url, $selectors, [], 'auto');
+
+                if ($scraped && !empty($scraped['title'])) {
+                    ajdwp_apm_create_product($scraped, $product_id);
+                }
+                break;
+        }
+    }
+
+    wp_send_json_success(['message' => 'Action complete.']);
+}
+
+// ============================
+// AJAX: Bulk Price Multiplier
+// ============================
+
+add_action('wp_ajax_ajdwp_bulk_price_multiplier', 'ajdwp_handle_bulk_price_multiplier');
+function ajdwp_handle_bulk_price_multiplier()
+{
+    // check_ajax_referer('ajdwp_nonce', '_ajax_nonce');
+    check_ajax_referer('ajdwp_template_nonce');
+
+    $ids = $_POST['ids'] ?? [];
+    $formula = $_POST['formula'] ?? '';
+
+    if (empty($ids) || !is_array($ids) || empty($formula)) {
+        wp_send_json_error(['message' => 'Missing data.']);
+    }
+
+    foreach ($ids as $product_id) {
+        $product = wc_get_product(intval($product_id));
+        if (!$product) continue;
+
+        $original_price = floatval($product->get_price());
+        if ($original_price <= 0) continue;
+
+        // 🔢 Evaluate formula (e.g. "price*1.2+1.35")
+        $safe_formula = str_replace('price', $original_price, $formula);
+        $new_price = @eval("return floatval($safe_formula);");
+
+        if (is_numeric($new_price) && $new_price > 0) {
+            $product->set_sale_price($new_price);
+            $product->set_price($new_price);
+            $product->save();
+        }
+    }
+
+    wp_send_json_success(['message' => 'Prices updated with multiplier.']);
+}
