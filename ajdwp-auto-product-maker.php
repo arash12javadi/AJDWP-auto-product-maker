@@ -128,13 +128,13 @@ function ajdwp_apm_init_plugin()
     }
 
     // ✅ Load plugin components
+    require_once AJDWPAPM_PATH . 'includes/helpers.php';
     require_once AJDWPAPM_PATH . 'includes/simple_html_dom.php';
     require_once AJDWPAPM_PATH . 'includes/scraper.php';
     require_once AJDWPAPM_PATH . 'includes/product-creator.php';
     require_once AJDWPAPM_PATH . 'admin/tab1-product-scrape-form-ajax.php';
     require_once AJDWPAPM_PATH . 'admin/tab2-templates-manager-ajax.php';
     require_once AJDWPAPM_PATH . 'admin/tab3-add-new-template-ajax.php';
-    require_once AJDWPAPM_PATH . 'includes/helpers.php';
 }
 
 // WooCommerce Required Notice

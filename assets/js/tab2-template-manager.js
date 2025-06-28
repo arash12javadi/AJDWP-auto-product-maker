@@ -1,3 +1,5 @@
+//_____________________________________ tab2-template-manager.js _____________________________________//
+
 jQuery(function ($) {
   // ==============================
   // Template URL CRUD
@@ -128,67 +130,9 @@ jQuery(function ($) {
   // ==============================
   // Full Update
   // ==============================
-  $(document).on("click", ".ajdwp-action-full-update", function () {
-    const button = $(this);
-    const customId = button.data("id");
-    const wcProductId = button.data("product-id");
-
-    const priceCell = $(`#product-price-${wcProductId}`);
-    const titleCell = $(`#product-title-${wcProductId}`);
-    const oldPrice = priceCell.text().replace("£", "").trim();
-    const oldTitle = titleCell.text().trim();
-
-    priceCell.html("<em>Updating...</em>");
-    titleCell.html("<em>Updating...</em>");
-
-    $.post(
-      AJDWP_tab2.ajax_url,
-      {
-        action: "ajdwp_full_update_product",
-        _ajax_nonce: AJDWP_tab2.nonce,
-        id: customId,
-      },
-      function (res) {
-        if (res.success) {
-          const { price: newPrice, title: newTitle, edit_link: editLink } = res.data;
-
-          // Update Price
-          if (oldPrice !== newPrice) {
-            priceCell.html(`
-              <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice}</span>
-              <span style="color: green; font-weight: bold;">£${newPrice}</span>`);
-          } else {
-            priceCell.html(`<span style="color: gray;">£${newPrice}</span>`);
-          }
-
-          // Update Title
-          if (oldTitle !== newTitle) {
-            const newTitleHtml = editLink
-              ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
-              : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
-            titleCell.html(`
-              <span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span>
-              ${newTitleHtml}`);
-          } else {
-            titleCell.html(
-              editLink ? `<a href="${editLink}" target="_blank" style="color: gray;">${newTitle}</a>` : `<span style="color: gray;">${newTitle}</span>`
-            );
-          }
-        } else {
-          alert("❌ Full update failed.");
-          priceCell.html(`<span style="color:red;">£${oldPrice}</span>`);
-          titleCell.html(`<span style="color:red;">${oldTitle}</span>`);
-        }
-      }
-    );
-  });
-
-  // ========================
-  // Bulk Action
-  // ========================
   $(document).on("click", "#ajdwp-do-bulk-action", function () {
     const action = $("#ajdwp-bulk-action-top").val();
-    const ids = $("input[name='product_ids[]']:checked")
+    const ids = $("input[name='product_custom_ids[]']:checked")
       .map(function () {
         return $(this).val();
       })
@@ -199,18 +143,7 @@ jQuery(function ($) {
       return;
     }
 
-    console.log("🔍 Bulk action:", action);
-    console.log("🧾 Selected Product IDs:", ids);
-
-    // Log which selector you're using if needed (example: price selector)
-    ids.forEach((id) => {
-      const row = $(`tr[data-id] input[value='${id}']`).closest("tr");
-      const title = row.find("td:nth-child(4)").text().trim(); // title column
-      const price = row.find("td:nth-child(6)").text().trim(); // price column
-      console.log(`🧪 ID: ${id}, Title: ${title}, Price: ${price}`);
-    });
-
-    // Then send AJAX
+    // ✅ Start AJAX bulk handler
     $.post(
       AJDWP_tab2.ajax_url,
       {
@@ -221,8 +154,189 @@ jQuery(function ($) {
       },
       function (res) {
         if (res.success) {
-          alert("✅ Bulk action completed.");
-          location.reload();
+          // alert("✅ Bulk action completed.");
+
+          ids.forEach((customId) => {
+            const row = $(`tr[data-id='${customId}']`);
+            const wcProductId = row.data("product-id") || row.find("td:nth-child(2)").text().trim();
+
+            const priceCell = $(`#product-price-${wcProductId}`);
+            const titleCell = $(`#product-title-${wcProductId}`);
+
+            // ✅ DELETE
+            if (action === "delete_all") {
+              row.fadeOut(300, function () {
+                $(this).remove();
+              });
+            }
+
+            // ✅ PRICE UPDATE
+            if (action === "update_price_all") {
+              priceCell.html("<em>Updating...</em>");
+
+              $.post(
+                AJDWP_tab2.ajax_url,
+                {
+                  action: "ajdwp_update_price",
+                  _ajax_nonce: AJDWP_tab2.nonce,
+                  id: customId,
+                },
+                function (res2) {
+                  if (res2.success && res2.data.product_id && res2.data.price) {
+                    const newPrice = parseFloat(res2.data.price).toFixed(2);
+                    const oldText = priceCell.text().replace("£", "").trim();
+                    const oldPrice = parseFloat(oldText) || 0;
+
+                    let html = "";
+                    if (newPrice == oldPrice.toFixed(2)) {
+                      html = `<span style="color: gray;">£${newPrice}</span>`;
+                    } else {
+                      html = `
+                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
+                      <span style="color: green; font-weight: bold;">£${newPrice}</span>`;
+                    }
+                    priceCell.html(html);
+                  } else {
+                    priceCell.html(`<span style="color:red;">❌ Error</span>`);
+                  }
+                }
+              );
+            }
+
+            // ✅ FULL UPDATE
+            if (action === "full_update_all") {
+              priceCell.html("<em>Updating...</em>");
+              titleCell.html("<em>Updating...</em>");
+
+              $.post(
+                AJDWP_tab2.ajax_url,
+                {
+                  action: "ajdwp_full_update_product",
+                  _ajax_nonce: AJDWP_tab2.nonce,
+                  id: customId,
+                },
+                function (res2) {
+                  if (res2.success) {
+                    const { price: newPrice, title: newTitle, edit_link: editLink } = res2.data;
+
+                    // 🔁 Price
+                    const oldText = priceCell.text().replace("£", "").trim();
+                    const oldPrice = parseFloat(oldText) || 0;
+                    if (parseFloat(newPrice) !== oldPrice) {
+                      priceCell.html(`
+                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
+                      <span style="color: green; font-weight: bold;">£${parseFloat(newPrice).toFixed(2)}</span>`);
+                    } else {
+                      priceCell.html(`<span style="color: gray;">£${parseFloat(newPrice).toFixed(2)}</span>`);
+                    }
+
+                    // 🔁 Title
+                    const oldTitle = titleCell.text().trim();
+                    if (oldTitle !== newTitle) {
+                      const titleHtml = editLink
+                        ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
+                        : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
+                      titleCell.html(`
+                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span>
+                      ${titleHtml}`);
+                    } else {
+                      titleCell.html(
+                        editLink
+                          ? `<a href="${editLink}" target="_blank" style="color: gray;">${newTitle}</a>`
+                          : `<span style="color: gray;">${newTitle}</span>`
+                      );
+                    }
+                  } else {
+                    priceCell.html(`<span style="color:red;">❌</span>`);
+                    titleCell.html(`<span style="color:red;">❌</span>`);
+                  }
+                }
+              );
+            }
+          });
+        } else {
+          alert("❌ Bulk action failed.");
+          console.log(res);
+        }
+      }
+    );
+  });
+
+  // ========================
+  // Bulk Action
+  // ========================
+  $(document).on("click", "#ajdwp-do-bulk-action", function () {
+    const action = $("#ajdwp-bulk-action-top").val();
+    const ids = $("input[name='product_custom_ids[]']:checked")
+      .map(function () {
+        return $(this).val();
+      })
+      .get();
+
+    if (action === "-1" || ids.length === 0) {
+      alert("Please select action and at least one product.");
+      return;
+    }
+
+    $.post(
+      AJDWP_tab2.ajax_url,
+      {
+        action: "ajdwp_bulk_product_action",
+        _ajax_nonce: AJDWP_tab2.nonce,
+        sub_action: action,
+        ids: ids,
+      },
+      function (res) {
+        if (res.success) {
+          // alert("✅ Bulk action completed.");
+
+          // 🔁 Dynamically update DOM for price updates
+          if (action === "update_price_all") {
+            ids.forEach((customId) => {
+              // Get associated WC product ID from row
+              const row = $(`input[name='product_custom_ids[]'][value='${customId}']`).closest("tr");
+              const wcProductId = row.find("input[type='checkbox']").val();
+              const priceCell = $(`#product-price-${wcProductId}`);
+
+              // Trigger individual AJAX price update to reflect changes
+              $.post(
+                AJDWP_tab2.ajax_url,
+                {
+                  action: "ajdwp_update_price",
+                  _ajax_nonce: AJDWP_tab2.nonce,
+                  id: customId,
+                },
+                function (res2) {
+                  if (res2.success && res2.data.product_id && res2.data.price) {
+                    const newPrice = parseFloat(res2.data.price).toFixed(2);
+                    const oldText = priceCell.text().replace("£", "").trim();
+                    const oldPrice = parseFloat(oldText) || 0;
+
+                    let html = "";
+                    if (newPrice == oldPrice.toFixed(2)) {
+                      html = `<span style="color: gray;">£${newPrice}</span>`;
+                    } else {
+                      html = `
+                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
+                      <span style="color: green; font-weight: bold;">£${newPrice}</span>`;
+                    }
+                    priceCell.html(html);
+                  }
+                }
+              );
+            });
+          }
+
+          // ✅ Optional DOM update for delete or full_update_all if needed...
+          if (action === "delete_all") {
+            ids.forEach((customId) => {
+              $(`input[name='product_custom_ids[]'][value='${customId}']`)
+                .closest("tr")
+                .fadeOut(300, function () {
+                  $(this).remove();
+                });
+            });
+          }
         } else {
           alert("❌ Bulk action failed.");
           console.log(res);
@@ -258,7 +372,6 @@ jQuery(function ($) {
       function (res) {
         if (res.success) {
           alert("✅ Price multiplier applied.");
-          location.reload();
         } else {
           alert("❌ Multiplier failed: " + (res.data || "Unknown error"));
         }

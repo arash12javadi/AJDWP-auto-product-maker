@@ -1,4 +1,6 @@
 <?php
+//_____________________________________ tab2-templates-manager.php _____________________________________//
+
 global $wpdb;
 
 // Fetch all templates sorted by name

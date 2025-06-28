@@ -1,5 +1,5 @@
 <?php
-
+defined('ABSPATH') || exit;
 // ===========================
 //      Add New Template Form
 // ===========================

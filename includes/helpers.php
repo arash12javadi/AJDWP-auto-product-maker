@@ -1,5 +1,7 @@
 <?php
 
+//_____________________________________ helpers.php _____________________________________//
+
 /**
  * Check if a WooCommerce product already exists using its source URL.
  *
@@ -69,8 +71,18 @@ function ajdwp_apm_get_image_preview_from_url($url)
 function ajdwp_apm_get_template_selectors($template_id)
 {
     global $wpdb;
-    $table = $wpdb->prefix . 'ajdwp_selectors';
-    $selectors = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE template_id = %d", $template_id), ARRAY_A);
+    $table = $wpdb->prefix . 'ajdwp_template_selectors'; // ✅ fixed name
+    $selectors = $wpdb->get_results(
+        $wpdb->prepare("SELECT field_name, selector_value FROM $table WHERE template_id = %d", $template_id),
+        OBJECT_K
+    );
 
-    return $selectors ?: [];
+    if (!$selectors) return [];
+
+    // Return as associative array: ['price' => '.price-class', ...]
+    $results = [];
+    foreach ($selectors as $field => $row) {
+        $results[$field] = $row->selector_value;
+    }
+    return $results;
 }

@@ -1,5 +1,7 @@
 <?php
 
+//_____________________________________ tab2-templates-manager-ajax.php _____________________________________//
+
 // ============================
 // AJAX: Rename and Delete Templates
 // ============================
@@ -180,12 +182,11 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                         ? wp_get_attachment_image_url($wc_product->get_image_id(), 'thumbnail')
                         : ajdwp_apm_get_image_preview_from_url($product_url);
                     ?>
-                    <tr data-id="<?= esc_attr($custom_id) ?>">
+                    <tr data-id="<?= esc_attr($custom_id) ?>" data-product-id="<?= esc_attr($wc_product_id) ?>">
                         <th scope="row" class="check-column">
                             <?php if ($wc_product_id): ?>
-                                <input type="checkbox" name="product_ids[]" value="<?= esc_attr($wc_product_id) ?>">
+                                <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($custom_id) ?>">
                             <?php endif; ?>
-
                         </th>
                         <td><?= esc_html($wc_product_id ?: '—') ?></td>
                         <td>
@@ -507,7 +508,7 @@ add_action('wp_ajax_ajdwp_search_template_products', function () {
         <tr data-id="<?= esc_attr($custom_id) ?>">
             <th scope="row" class="check-column">
                 <?php if ($wc_product_id): ?>
-                    <input type="checkbox" name="product_ids[]" value="<?= esc_attr($wc_product_id) ?>">
+                    <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($custom_id) ?>">
                 <?php endif; ?>
 
             </th>
@@ -557,8 +558,11 @@ add_action('wp_ajax_ajdwp_search_template_products', function () {
 add_action('wp_ajax_ajdwp_bulk_product_action', 'ajdwp_handle_bulk_product_action');
 function ajdwp_handle_bulk_product_action()
 {
-    // check_ajax_referer('ajdwp_nonce', '_ajax_nonce');
+    ob_start(); // ✅ prevent headers already sent errors
     check_ajax_referer('ajdwp_template_nonce');
+
+    global $wpdb;
+
     $ids = $_POST['ids'] ?? [];
     $action = sanitize_text_field($_POST['sub_action'] ?? '');
 
@@ -566,50 +570,77 @@ function ajdwp_handle_bulk_product_action()
         wp_send_json_error(['message' => 'Invalid product IDs.']);
     }
 
-    foreach ($ids as $product_id) {
-        $product_id = intval($product_id);
-        if (!$product_id) continue;
+    foreach ($ids as $custom_id) {
+        $custom_id = intval($custom_id);
+        if (!$custom_id) continue;
+
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
+            $custom_id
+        ));
+
+        if (!$row) continue;
+
+        $source_url = $row->product_url;
+        $template_id = $row->template_id;
+        $product_id = ajdwp_apm_get_existing_product_id($source_url);
+        $selectors = ajdwp_apm_get_template_selectors($template_id);
 
         switch ($action) {
             case 'delete_all':
-                wp_delete_post($product_id, true);
+                // Delete WooCommerce product if it exists
+                if ($product_id) {
+                    wp_delete_post($product_id, true);
+                }
+                // Delete from your plugin table too
+                $wpdb->delete("{$wpdb->prefix}ajdwp_template_urls", ['id' => $custom_id]);
                 break;
 
             case 'update_price_all':
-                // 🔁 Re-scrape only price and update
-                $source_url = get_post_meta($product_id, '_ajdwp_source_url', true);
-                $template_id = get_post_meta($product_id, '_ajdwp_template_id', true);
+                if (!$product_id) continue 2;
 
-                $selectors = ajdwp_apm_get_template_selectors($template_id);
-                $price_selector = ['price' => $selectors['price'] ?? '', 'price_calc' => $selectors['price_calc'] ?? ''];
-                $price_data = ajdwp_apm_scrape_product_data($source_url, $price_selector, ['title', 'image', 'gallery', 'short_description', 'long_description'], 'auto');
+                $price_data = ajdwp_apm_scrape_product_data($source_url, $selectors, [], 'auto');
+                $raw_price = $price_data['price'] ?? '';
 
-                if (!empty($price_data['price'])) {
-                    $product = wc_get_product($product_id);
-                    if ($product) {
-                        $product->set_sale_price($price_data['price']);
-                        $product->set_price($price_data['price']);
-                        $product->save();
-                    }
+                // ✅ Clean and validate price
+                $price = floatval(preg_replace('/[^\d.]/', '', $raw_price));
+                if ($price <= 0) continue 2;
+
+                $product = wc_get_product($product_id);
+                if ($product) {
+                    $product->set_sale_price($price);
+                    $product->set_price($price);
+                    $product->save();
+
+                    // Force update via meta just in case
+                    update_post_meta($product_id, '_sale_price', $price);
+                    update_post_meta($product_id, '_price', $price);
                 }
                 break;
 
             case 'full_update_all':
-                // 🔁 Re-scrape full data and update
-                $source_url = get_post_meta($product_id, '_ajdwp_source_url', true);
-                $template_id = get_post_meta($product_id, '_ajdwp_template_id', true);
-                $selectors = ajdwp_apm_get_template_selectors($template_id);
+                if (!$product_id) continue 2;
                 $scraped = ajdwp_apm_scrape_product_data($source_url, $selectors, [], 'auto');
 
                 if ($scraped && !empty($scraped['title'])) {
                     ajdwp_apm_create_product($scraped, $product_id);
+
+                    // Optionally update your plugin's URL table
+                    $wpdb->update("{$wpdb->prefix}ajdwp_template_urls", [
+                        'title' => sanitize_text_field($scraped['title']),
+                        'price' => sanitize_text_field($scraped['price']),
+                        'image' => esc_url_raw($scraped['image'] ?? ''),
+                        'last_scraped' => current_time('mysql')
+                    ], ['id' => $custom_id]);
                 }
                 break;
         }
     }
 
-    wp_send_json_success(['message' => 'Action complete.']);
+    ob_end_clean(); // ✅ clean buffer to avoid header issues
+    wp_send_json_success(['message' => '✅ Bulk action completed.']);
 }
+
 
 // ============================
 // AJAX: Bulk Price Multiplier

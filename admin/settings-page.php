@@ -1,4 +1,5 @@
 <?php
+// ====================== settings-page.php ====================== //
 // Load scraper functions
 require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
 
