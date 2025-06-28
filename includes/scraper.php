@@ -1,28 +1,16 @@
 <?php
-// Load the HTML parser
 require_once AJDWPAPM_PATH . 'includes/simple_html_dom.php';
 
-/**
- * Runs the Node.js Playwright script to return fully rendered HTML.
- *
- * @param string $url The page URL to scrape.
- * @return string|false The HTML content or false on failure.
- */
 function ajdwp_apm_get_rendered_html($url)
 {
     $escaped_url = escapeshellarg($url);
     $script_path = AJDWPAPM_PATH . 'assets/js/scraper.js';
-    $node_binary = 'C:\\Program Files\\nodejs\\node.exe'; // Update if your node path differs
+    $node_binary = 'C:\\Program Files\\nodejs\\node.exe';
     $node_cmd = "\"$node_binary\" " . escapeshellarg($script_path) . " $escaped_url 2>&1";
 
     $output = shell_exec($node_cmd);
+    if (!$output || strlen($output) < 500) return false;
 
-    if (!$output || strlen($output) < 500) {
-        error_log("❌ AJDWP: No or insufficient output from scraper.");
-        return false;
-    }
-
-    // Optional: Save rendered HTML for inspection
     if (defined('AJDWPAPM_DEBUG') && AJDWPAPM_DEBUG === true) {
         file_put_contents(AJDWPAPM_PATH . 'debug-rendered.html', $output);
     }
@@ -30,54 +18,35 @@ function ajdwp_apm_get_rendered_html($url)
     return $output;
 }
 
-
-/**
- * Attempts to scrape product data using static HTML first, then falls back to dynamic scraping with Playwright if needed.
- *
- * @param string $url Page URL
- * @param array $selectors Custom CSS selectors
- * @param array $skip_fields Fields to skip
- * @param string $method 'auto' | 'static' | 'dynamic'
- * @return array|false
- */
 function ajdwp_apm_scrape_product_data($url, $selectors = [], $skip_fields = [], $method = 'auto')
 {
     $html = '';
     $parsed = false;
 
-    // Method 1: Try static HTML scraping
     if ($method === 'static' || $method === 'auto') {
         $html = @file_get_contents($url);
-        // file_put_contents(AJDWPAPM_PATH . 'debug-static.html', $html);
-
+        if (defined('AJDWPAPM_DEBUG') && AJDWPAPM_DEBUG === true) {
+            file_put_contents(AJDWPAPM_PATH . 'debug-static.html', $html);
+        }
         if ($html && strlen($html) > 100) {
             $parsed = ajdwp_apm_parse_product_html($html, $url, $selectors, $skip_fields);
-            if ($method === 'static' || ($parsed && !empty($parsed['title']))) {
-                return $parsed;
-            }
+            if ($method === 'static' || ($parsed && !empty($parsed['title']))) return $parsed;
         }
     }
 
-    // Method 2: Fallback to dynamic scraping via Playwright
     if ($method === 'dynamic' || $method === 'auto') {
         $html = ajdwp_apm_get_rendered_html($url);
-
         if ($html && strlen($html) > 100) {
             $parsed = ajdwp_apm_parse_product_html($html, $url, $selectors, $skip_fields);
-            if ($parsed && !empty($parsed['title'])) {
-                return $parsed;
-            }
+            if ($parsed && !empty($parsed['title'])) return $parsed;
         }
     }
 
-    // ❌ Failed
     return false;
 }
 
-
 function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields = [])
 {
-    require_once AJDWPAPM_PATH . 'includes/simple_html_dom.php';
     $dom = str_get_html($html);
     if (!$dom) return false;
 
@@ -92,14 +61,21 @@ function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields
 
     $data = [];
 
-    foreach ($defaults as $field => $selector) {
+    foreach ($defaults as $field => $default_selector) {
         if (in_array($field, $skip_fields, true)) {
-            $data[$field] = '';
+            $data[$field] = $field === 'price' ? 0.00 : '';
             continue;
         }
 
-        $actual_selector = !empty($selectors[$field]) ? $selectors[$field] : $selector;
-        $found_elements = $dom->find($actual_selector);
+        $raw_selector = $selectors[$field] ?? $default_selector;
+        $cleaned_selector = preg_replace('/\\\\+/', '', stripslashes(html_entity_decode($raw_selector)));
+        $selector_array = array_filter(array_map('trim', explode(',', $cleaned_selector)));
+
+        $found_elements = [];
+        foreach ($selector_array as $sel) {
+            $found_elements = $dom->find($sel);
+            if (!empty($found_elements)) break;
+        }
 
         if ($field === 'gallery') {
             $gallery_images = [];
@@ -116,17 +92,14 @@ function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields
         $found = $found_elements[0] ?? null;
 
         if ($found) {
-            if (str_contains($actual_selector, 'meta[')) {
+            if (str_contains($cleaned_selector, 'meta[')) {
                 $data[$field] = $found->content ?? '';
             } elseif ($field === 'image') {
                 $src = trim($found->src ?? '');
-                if (!empty($src)) {
-                    $data[$field] = strpos($src, 'http') === 0 ? $src : (parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST) . '/' . ltrim($src, '/'));
-                } else {
-                    $data[$field] = '';
-                }
+                $data[$field] = strpos($src, 'http') === 0
+                    ? $src
+                    : (parse_url($url, PHP_URL_SCHEME) . '://' . parse_url($url, PHP_URL_HOST) . '/' . ltrim($src, '/'));
             } elseif ($field === 'price') {
-                // Extract prices
                 $ins_el = $dom->find('p.price ins span bdi', 0);
                 $del_el = $dom->find('p.price del span bdi', 0);
 
@@ -134,12 +107,33 @@ function ajdwp_apm_parse_product_html($html, $url, $selectors = [], $skip_fields
                     if (!$el) return 0.00;
                     $text = strip_tags($el->innertext ?? '');
                     $text = preg_replace('/[^0-9.,]/', '', $text);
-                    $text = str_replace(',', '.', $text); // optional for EU-style prices
+                    $text = str_replace(',', '.', $text);
                     return floatval($text);
                 };
 
-                $data['price'] = $extract_clean_price($ins_el);
-                $data['price_regular'] = $extract_clean_price($del_el);
+                $price = $extract_clean_price($ins_el);
+                $regular = $extract_clean_price($del_el);
+
+                $data['price'] = $price;
+                $data['price_regular'] = $regular;
+
+                // ➕ Apply price_calc if provided
+                if (!empty($selectors['price_calc']) && is_numeric($price)) {
+                    $calc = trim($selectors['price_calc']);
+                    $expression = str_replace('price', $price, $calc);
+
+                    // Only allow safe characters
+                    if (preg_match('/^[0-9\.\+\-\*\/\(\) ]+$/', $expression)) {
+                        try {
+                            eval('$adjusted = ' . $expression . ';');
+                            if (is_numeric($adjusted)) {
+                                $data['price'] = round(floatval($adjusted), 2);
+                            }
+                        } catch (Throwable $e) {
+                            // Fail silently
+                        }
+                    }
+                }
             } else {
                 $data[$field] = trim($found->plaintext ?? '');
             }

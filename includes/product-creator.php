@@ -15,45 +15,55 @@ function ajdwp_apm_create_product($data, $existing_id = null)
         $product = new WC_Product_Simple();
     }
 
-    $price         = $data['price'] ?? '0.00';
-    $price_regular = $data['price_regular'] ?? '';
-    $final_price   = $price;
-    $has_sale      = !empty($price_regular) && $price_regular !== $price;
+    // 🔢 Price logic
+    $price          = floatval($data['price'] ?? 0.00);             // scraped discounted price
+    $price_regular  = floatval($data['price_regular'] ?? 0.00);     // scraped regular price
+    $final_price    = floatval($data['final_price'] ?? $price);     // user-chosen final (e.g. calculated)
 
-    $product->set_name($data['title'] ?? 'Untitled');
-    $product->set_price($final_price);
-    $product->set_regular_price($has_sale ? $price_regular : $price);
-    if ($has_sale) {
-        $product->set_sale_price($price);
+    // 🧠 Always save as SALE price
+    if ($price_regular > $final_price) {
+        $product->set_regular_price($price_regular);
+        $product->set_sale_price($final_price);
+        $product->set_price($final_price);
+    } else {
+        // If regular is missing or same/less, just set final_price as base & sale
+        $product->set_regular_price($final_price);
+        $product->set_sale_price($final_price);
+        $product->set_price($final_price);
     }
 
+    // 🏷️ Basic details
+    $product->set_name($data['title'] ?? 'Untitled');
     $product->set_short_description($data['short_description'] ?? '');
     $product->set_description($data['long_description'] ?? '');
     $product->set_catalog_visibility('visible');
     $product->set_status('publish');
+
+    // 💾 Save initial product
     $product->save();
 
-    update_post_meta($product->get_id(), '_ajdwp_source_url', esc_url_raw($data['source_url']));
+    // 🔗 Source URL tracking
+    if (!empty($data['source_url'])) {
+        update_post_meta($product->get_id(), '_ajdwp_source_url', esc_url_raw($data['source_url']));
+    }
 
-    // ✅ Upload and set featured image
-    $image_url = $data['image'] ?? '';
-    if (!empty($image_url)) {
-        $media_id = ajdwp_apm_sideload_image($image_url, $product->get_id());
+    // 🖼️ Featured Image
+    if (!empty($data['image'])) {
+        $media_id = ajdwp_apm_sideload_image($data['image'], $product->get_id());
         if ($media_id) {
             $product->set_image_id($media_id);
             $product->save();
         }
     }
 
-    // ✅ Upload and set gallery images
-    $gallery_urls = $data['gallery'] ?? [];
-    if (!empty($gallery_urls) && is_array($gallery_urls)) {
+    // 🖼️ Gallery Images
+    if (!empty($data['gallery']) && is_array($data['gallery'])) {
         $gallery_ids = [];
 
-        foreach ($gallery_urls as $gallery_url) {
-            $gallery_id = ajdwp_apm_sideload_image($gallery_url, $product->get_id());
-            if ($gallery_id) {
-                $gallery_ids[] = $gallery_id;
+        foreach ($data['gallery'] as $url) {
+            $id = ajdwp_apm_sideload_image($url, $product->get_id());
+            if ($id) {
+                $gallery_ids[] = $id;
             }
         }
 
@@ -65,6 +75,7 @@ function ajdwp_apm_create_product($data, $existing_id = null)
 
     return $product->get_id();
 }
+
 
 function ajdwp_apm_sideload_image($url, $post_id)
 {

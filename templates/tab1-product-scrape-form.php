@@ -7,6 +7,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     if (!isset($_POST['ajdwp_apm_nonce']) || !wp_verify_nonce($_POST['ajdwp_apm_nonce'], 'ajdwp_apm_action')) {
         echo '<div class="notice notice-error"><p>❌ Security check failed.</p></div>';
     } else {
+        // ✅ Fix escaped slashes
+        foreach ($_POST as $k => $v) {
+            $_POST[$k] = is_array($v) ? stripslashes_deep($v) : stripslashes($v);
+        }
+
         global $wpdb;
         $template_id = intval($_POST['template_select'] ?? 0);
         $url = esc_url_raw(trim($_POST['product_url']));
@@ -51,6 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
         $action_stage = $_POST['action_stage'] ?? 'preview';
         $method       = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
         $data         = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields, $method);
+
+        // ✅ Handle "use_regular_price" checkbox
+        if (!empty($_POST['use_regular_price'])) {
+            $data['final_price'] = $data['price_regular'] ?? $data['price'];
+        } else {
+            $data['final_price'] = $data['price'];
+        }
 
         if ($data && !empty($data['title'])) {
             if ($action_stage === 'preview') {
@@ -204,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
         <?php endforeach; ?>
 
         <tr>
-            <th><label for="selector_price_calc">Price Multiplier (e.g. x1.2 or +5):</label></th>
+            <th><label for="selector_price_calc">Price Multiplier [ e.g. <span class="temp-default-exp">(price+5)*1.1 </span> &nbsp;]</label></th>
             <td><input type="text" name="selector_price_calc" id="selector_price_calc" /></td>
         </tr>
     </table>
