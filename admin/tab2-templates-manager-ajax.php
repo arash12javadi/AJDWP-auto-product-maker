@@ -135,12 +135,12 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                     <option value="update_price_all">Update Price</option>
                     <option value="full_update_all">Full Update</option>
                 </select>
-                <button type="button" class="button action" id="ajdwp-do-bulk-action">Apply</button>
+                <button type="button" class="button action" id="ajdwp-do-bulk-action">Apply All</button>
             </div>
             <div class="price-multiplier" style="float: left;">
                 <label for="input_price_multiplier_all">Price Multiplier:</label>
                 <input type="text" name="input_price_multiplier_all" id="input_price_multiplier_all" value="price*1" />
-                <button type="button" class="button action" id="ajdwp-bulk-multiplier-all">Multiply All</button>
+                <button type="button" class="button action" id="ajdwp-bulk-multiplier-all">Calculate</button>
             </div>
             <div style="float:right;">
                 <label for="ajdwp-product-search">Search Products:</label>
@@ -649,33 +649,62 @@ function ajdwp_handle_bulk_product_action()
 add_action('wp_ajax_ajdwp_bulk_price_multiplier', 'ajdwp_handle_bulk_price_multiplier');
 function ajdwp_handle_bulk_price_multiplier()
 {
-    // check_ajax_referer('ajdwp_nonce', '_ajax_nonce');
     check_ajax_referer('ajdwp_template_nonce');
 
+    global $wpdb;
+
     $ids = $_POST['ids'] ?? [];
-    $formula = $_POST['formula'] ?? '';
+    $formula = trim($_POST['formula'] ?? '');
 
     if (empty($ids) || !is_array($ids) || empty($formula)) {
         wp_send_json_error(['message' => 'Missing data.']);
     }
 
-    foreach ($ids as $product_id) {
-        $product = wc_get_product(intval($product_id));
+    $updated_prices = [];
+
+    foreach ($ids as $custom_id) {
+        $custom_id = intval($custom_id);
+        if (!$custom_id) continue;
+
+        $row = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
+            $custom_id
+        ));
+
+        if (!$row) continue;
+
+        $product_id = ajdwp_apm_get_existing_product_id($row->product_url);
+        if (!$product_id) continue;
+
+        $product = wc_get_product($product_id);
         if (!$product) continue;
 
         $original_price = floatval($product->get_price());
         if ($original_price <= 0) continue;
 
-        // 🔢 Evaluate formula (e.g. "price*1.2+1.35")
+        // 🔢 Evaluate custom formula
         $safe_formula = str_replace('price', $original_price, $formula);
-        $new_price = @eval("return floatval($safe_formula);");
+        try {
+            // very limited eval - you control the formula UI
+            $new_price = @eval("return floatval($safe_formula);");
+        } catch (Throwable $e) {
+            continue;
+        }
 
         if (is_numeric($new_price) && $new_price > 0) {
-            $product->set_sale_price($new_price);
             $product->set_price($new_price);
+            $product->set_sale_price($new_price);
             $product->save();
+
+            update_post_meta($product_id, '_price', $new_price);
+            update_post_meta($product_id, '_sale_price', $new_price);
+
+            $updated_prices[] = [
+                'product_id' => $product_id,
+                'new_price'  => round($new_price, 2),
+            ];
         }
     }
 
-    wp_send_json_success(['message' => 'Prices updated with multiplier.']);
+    wp_send_json_success(['updated_prices' => $updated_prices]);
 }

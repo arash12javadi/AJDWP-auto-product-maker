@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
             if (!$exists) {
                 $wpdb->insert($table_urls, [
                     'template_id' => $template_id,
-                    'product_url' => $url
+                    'product_url' => $url,
+                    'last_scraped' => current_time('mysql'),
                 ]);
             }
         }
