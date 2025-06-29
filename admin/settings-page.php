@@ -9,9 +9,9 @@ require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
     <h1>Auto Product Maker</h1>
 
     <h2 class="nav-tab-wrapper">
-        <a href="#tab-scraper" class="nav-tab nav-tab-active">🌐 Scraping Form</a>
-        <a href="#tab-manager" class="nav-tab">🗂️ Template Manager</a>
-        <a href="#tab-add" class="nav-tab">➕ Add New Template</a>
+        <a href="#tab-scraper" class="nav-tab nav-tab-active">🌐 Scraping Products</a>
+        <a href="#tab-manager" class="nav-tab">🗂️ Product Manager</a>
+        <a href="#tab-add" class="nav-tab">➕ Add/Edit Template</a>
     </h2>
 
     <div id="tab-scraper" class="ajdwp-tab-content" style="display: block;">

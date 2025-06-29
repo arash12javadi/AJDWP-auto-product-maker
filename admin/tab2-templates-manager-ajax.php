@@ -2,51 +2,6 @@
 
 //_____________________________________ tab2-templates-manager-ajax.php _____________________________________//
 
-// ============================
-// AJAX: Rename and Delete Templates
-// ============================
-
-add_action('wp_ajax_ajdwp_update_template', 'ajdwp_apm_ajax_update_template');
-add_action('wp_ajax_ajdwp_delete_template', 'ajdwp_apm_ajax_delete_template');
-
-
-function ajdwp_apm_ajax_update_template()
-{
-    check_ajax_referer('ajdwp_template_nonce');
-    global $wpdb;
-
-    $id   = intval($_POST['id']);
-    $name = sanitize_text_field($_POST['name']);
-
-    $wpdb->update(
-        "{$wpdb->prefix}ajdwp_templates",
-        ['name' => $name],
-        ['id'   => $id]
-    );
-
-    wp_send_json_success();
-}
-
-function ajdwp_apm_ajax_delete_template()
-{
-    check_ajax_referer('ajdwp_template_nonce');
-    global $wpdb;
-
-    $id = intval($_POST['id']);
-
-    // Move associated URLs to Default Template (ID 1)
-    $wpdb->update("{$wpdb->prefix}ajdwp_template_urls", [
-        'template_id' => 1
-    ], ['template_id' => $id]);
-
-    // Optionally clean up associated selectors
-    $wpdb->delete("{$wpdb->prefix}ajdwp_template_selectors", ['template_id' => $id]);
-
-    // Delete template itself
-    $wpdb->delete("{$wpdb->prefix}ajdwp_templates", ['id' => $id]);
-
-    wp_send_json_success();
-}
 
 
 // ============================
@@ -77,52 +32,6 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
 
     ob_start();
 ?>
-
-    <div class="ajdwp-template-header">
-        <h2 style="color: darkblue;font-size: 30px;"><?= esc_html($template->name) ?></h2>
-        <?php if ((int) $template->id !== 1): ?>
-            <div style="margin-bottom: 10px;">
-                <button class="button rename-template" data-id="<?= esc_attr($template->id) ?>">✏ Rename Template</button>
-                <button class="button delete-template" data-id="<?= esc_attr($template->id) ?>">🗑 Delete Template</button>
-            </div>
-        <?php endif; ?>
-    </div>
-    <p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>
-    <div class="ajdwp-template-selectors" style="margin: 20px 0;">
-        <h3>🔧 Scraping Selectors</h3>
-        <table class="form-table">
-            <?php
-            $fields = [
-                'title_selector' => 'Title Selector',
-                'short_description_selector' => 'Short Description',
-                'long_description_selector' => 'Long Description',
-                'main_image_selector' => 'Main Image',
-                'gallery_image_selectors' => 'Gallery Images',
-                'price_selector' => 'Price Selector',
-                'price_multiplier' => 'Price Multiplier',
-                'scrape_method' => 'Scraping Method',
-            ];
-            foreach ($fields as $field => $label):
-                $value = esc_html($template->$field);
-            ?>
-                <tr>
-                    <th><?= $label ?></th>
-                    <td>
-                        <p
-                            class="ajdwp-editable-selector"
-                            data-field="<?= esc_attr($field) ?>"
-                            data-value="<?= esc_attr($value) ?>"
-                            data-id="<?= esc_attr($template->id) ?>"
-                            style="cursor:pointer;color:#2271b1;">
-                            <?= $value ?: '<em>Not set</em>' ?>
-                        </p>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-        </table>
-    </div>
-
-    <p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>
 
     <form id="ajdwp-template-products-form" method="post">
 
@@ -232,48 +141,6 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
     <?php
     $html = ob_get_clean();
     wp_send_json_success(['html' => $html]);
-});
-
-
-// ============================
-// AJAX: Update element selector Fields of the templates
-// ============================
-
-add_action('wp_ajax_ajdwp_update_single_template_field', function () {
-    check_ajax_referer('ajdwp_template_nonce');
-
-    global $wpdb;
-    $id = intval($_POST['id']);
-    $field = sanitize_key($_POST['field']);
-    $value = sanitize_text_field(wp_unslash($_POST['value']));
-
-    // whitelist allowed fields
-    $allowed = [
-        'title_selector',
-        'short_description_selector',
-        'long_description_selector',
-        'main_image_selector',
-        'gallery_image_selectors',
-        'price_selector',
-        'price_multiplier',
-        'scrape_method'
-    ];
-
-    if (!in_array($field, $allowed, true)) {
-        wp_send_json_error(['message' => 'Invalid field']);
-    }
-
-    $updated = $wpdb->update(
-        "{$wpdb->prefix}ajdwp_templates",
-        [$field => $value],
-        ['id' => $id]
-    );
-
-    if ($updated !== false) {
-        wp_send_json_success();
-    } else {
-        wp_send_json_error();
-    }
 });
 
 

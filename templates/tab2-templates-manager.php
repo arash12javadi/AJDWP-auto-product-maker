@@ -29,9 +29,6 @@ $templates = $wpdb->get_results("
     </select>
 </div>
 
-<!-- Placeholder for dynamically loaded template data -->
-<div id="template-details-container" style="margin-top: 20px;"></div>
-
 <!-- ===========================
      Admin Controls for Template (AJAX Populated)
 =========================== -->

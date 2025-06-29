@@ -85,3 +85,86 @@ jQuery(function ($) {
     );
   });
 });
+
+document.querySelectorAll(".temp-default-exp").forEach((span) => {
+  span.style.cursor = "pointer";
+  span.title = "Click to use this default";
+
+  span.addEventListener("click", function () {
+    const id = this.id;
+    const input = document.querySelector(`input[name="${id}"]`);
+    if (input) {
+      input.value = this.textContent.trim();
+      input.focus();
+    }
+  });
+});
+
+//<p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>;
+//<p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>;
+//<p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>;
+
+jQuery(function ($) {
+  // ==============================
+  // Select a Template and get its data
+  // ==============================
+
+  $("#tab3_template_id").on("change", function () {
+    const templateId = $(this).val();
+    if (!templateId) return;
+
+    $.ajax({
+      method: "POST",
+      url: AJDWP_tab3.ajax_url,
+      data: {
+        action: "ajdwp_tab3_get_template_panel",
+        _ajax_nonce: AJDWP_tab3.nonce,
+        template_id: templateId,
+      },
+      success: function (response) {
+        if (response.success) {
+          $("#tab3-selected-template-panel").html(response.data.html);
+          $(document).trigger("ajdwp-panel-loaded");
+        } else {
+          alert(response.data.message || "Unknown error");
+        }
+      },
+      error: function (xhr) {
+        alert("AJAX failed: " + xhr.status);
+        console.error("AJAX Error:", xhr);
+      },
+    });
+  });
+
+  // ==============================
+  // Editable Selector Fields
+  // ==============================
+  $(document).on("click", ".ajdwp-editable-selector", function () {
+    const el = $(this);
+    const field = el.data("field");
+    const current = el.data("value");
+    const templateId = el.data("id");
+    let label = el.closest("tr").find("th").text();
+
+    const newVal = prompt(`Edit ${label}`, current);
+    if (newVal === null || newVal === current) return;
+
+    $.post(
+      AJDWP_tab3.ajax_url,
+      {
+        action: "ajdwp_update_single_template_field",
+        _ajax_nonce: AJDWP_tab3.nonce,
+        id: templateId,
+        field: field,
+        value: newVal,
+      },
+      function (res) {
+        if (res.success) {
+          el.text(newVal).data("value", newVal);
+        } else {
+          alert("❌ Update failed.");
+        }
+      }
+    );
+  });
+});

@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 // ===========================
 
 ?>
+<h2>➕ Add New Template</h2>
 <div id="ajdwp-add-template">
     <input type="text" id="new-template-name" placeholder="Enter template name..." style="min-width: 250px;" />
     <br><br>
@@ -37,18 +38,25 @@ defined('ABSPATH') || exit;
     <button id="add-template-btn" class="button button-primary">Add Template</button>
 </div>
 
-<script>
-    document.querySelectorAll('.temp-default-exp').forEach(span => {
-        span.style.cursor = 'pointer';
-        span.title = 'Click to use this default';
+<p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>
 
-        span.addEventListener('click', function() {
-            const id = this.id;
-            const input = document.querySelector(`input[name="${id}"]`);
-            if (input) {
-                input.value = this.textContent.trim();
-                input.focus();
-            }
-        });
-    });
-</script>
+<!-- ===========================
+     Template Selector Dropdown
+=========================== -->
+
+<div style="margin-bottom: 20px;">
+    <label for="tab3-template_id"><strong>🧩 Select a Template:</strong></label>
+    <select name="tab3-template_id" id="tab3_template_id" style="min-width: 250px;">
+        <option value="">-- Choose Template --</option>
+        <?php foreach ($templates as $template): ?>
+            <option value="<?= esc_attr($template->id) ?>">
+                <?= esc_html($template->name) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+</div>
+
+<!-- ===========================
+     Admin Controls for Template (AJAX Populated)
+=========================== -->
+<div id="tab3-selected-template-panel" style="margin-top: 30px;"></div>

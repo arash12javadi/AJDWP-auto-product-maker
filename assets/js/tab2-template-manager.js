@@ -2,7 +2,7 @@
 
 jQuery(function ($) {
   // ==============================
-  // Template URL CRUD
+  // Select a Template and get its data
   // ==============================
 
   $("#template_id").on("change", function () {
@@ -33,39 +33,7 @@ jQuery(function ($) {
   });
 
   // ==============================
-  // Editable Selector Fields
-  // ==============================
-  $(document).on("click", ".ajdwp-editable-selector", function () {
-    const el = $(this);
-    const field = el.data("field");
-    const current = el.data("value");
-    const templateId = el.data("id");
-    let label = el.closest("tr").find("th").text();
-
-    const newVal = prompt(`Edit ${label}`, current);
-    if (newVal === null || newVal === current) return;
-
-    $.post(
-      AJDWP_tab2.ajax_url,
-      {
-        action: "ajdwp_update_single_template_field",
-        _ajax_nonce: AJDWP_tab2.nonce,
-        id: templateId,
-        field: field,
-        value: newVal,
-      },
-      function (res) {
-        if (res.success) {
-          el.text(newVal).data("value", newVal);
-        } else {
-          alert("❌ Update failed.");
-        }
-      }
-    );
-  });
-
-  // ==============================
-  // Delete Product
+  // Single Product - Delete
   // ==============================
   $(document).on("click", ".ajdwp-action-delete", function () {
     const productId = $(this).data("id");
@@ -89,7 +57,7 @@ jQuery(function ($) {
   });
 
   // ==============================
-  // Update Price
+  // Single Product - Update Price
   // ==============================
   $(document).on("click", ".ajdwp-action-update-price", function () {
     const button = $(this);
@@ -322,7 +290,7 @@ jQuery(function ($) {
   });
 
   // ==============================
-  // Bulk Multiplier
+  // Bulk Action - Multiplier
   // ==============================
   $(document).on("click", "#ajdwp-bulk-multiplier-all", function () {
     const formula = $("#input_price_multiplier_all").val();
