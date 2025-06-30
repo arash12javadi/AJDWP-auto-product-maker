@@ -45,7 +45,9 @@ defined('ABSPATH') || exit;
 =========================== -->
 
 <div style="margin-bottom: 20px;">
-    <label for="tab3-template_id"><strong>🧩 Select a Template:</strong></label>
+    <label for="tab3-template_id">
+        <h2>🧩 Select a Template:</h2>
+    </label>
     <select name="tab3-template_id" id="tab3_template_id" style="min-width: 250px;">
         <option value="">-- Choose Template --</option>
         <?php foreach ($templates as $template): ?>

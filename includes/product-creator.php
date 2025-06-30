@@ -73,6 +73,23 @@ function ajdwp_apm_create_product($data, $existing_id = null)
         }
     }
 
+    // ✅ Store in your plugin's template_urls table if source_url exists
+    if (!empty($data['source_url'])) {
+        global $wpdb;
+
+        $wpdb->update(
+            "{$wpdb->prefix}ajdwp_template_urls",
+            [
+                'wc_product_id' => $product->get_id(),
+                'title' => sanitize_text_field(wp_unslash(html_entity_decode($data['title'] ?? ''))),
+                'price'         => sanitize_text_field($data['final_price'] ?? ''),
+                'image'         => esc_url_raw($data['image'] ?? ''),
+                'last_scraped'  => current_time('mysql'),
+            ],
+            ['product_url' => esc_url_raw($data['source_url'])]
+        );
+    }
+
     return $product->get_id();
 }
 

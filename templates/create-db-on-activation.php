@@ -45,17 +45,20 @@ function ajdwp_apm_create_db_tables()
 
   // Product URLs Table
   $sql_urls = "CREATE TABLE $table_urls (
-        id INT NOT NULL AUTO_INCREMENT,
-        template_id INT NOT NULL,
-        product_url TEXT NOT NULL,
-        title TEXT,
-        price DECIMAL(10,2),
-        image TEXT,
-        last_scraped DATETIME DEFAULT NULL,
-        status VARCHAR(50) DEFAULT NULL,
-        PRIMARY KEY (id),
-        KEY idx_template_id (template_id)
-    ) $charset_collate;";
+      id INT NOT NULL AUTO_INCREMENT,
+      template_id INT NOT NULL,
+      product_url TEXT NOT NULL,
+      wc_product_id BIGINT DEFAULT NULL,
+      title TEXT,
+      price DECIMAL(10,2),
+      image TEXT,
+      last_scraped DATETIME DEFAULT NULL,
+      status VARCHAR(50) DEFAULT NULL,
+      PRIMARY KEY (id),
+      KEY idx_template_id (template_id),
+      KEY idx_wc_product_id (wc_product_id)
+  ) $charset_collate;";
+
   dbDelta($sql_urls);
 
   // Insert Default Template If Not Exists
@@ -80,6 +83,19 @@ function ajdwp_apm_create_db_tables()
         'field_name'     => $selector['field_name'],
         'selector_value' => $selector['selector_value'],
       ]);
+    }
+  }
+
+  // Check if 'wc_product_id' column exists before running backfill
+  $has_wc_column = $wpdb->get_var("SHOW COLUMNS FROM $table_urls LIKE 'wc_product_id'");
+  if ($has_wc_column) {
+    $rows = $wpdb->get_results("SELECT id, product_url FROM $table_urls WHERE wc_product_id IS NULL OR wc_product_id = 0");
+
+    foreach ($rows as $row) {
+      $product_id = ajdwp_apm_get_existing_product_id($row->product_url);
+      if ($product_id) {
+        $wpdb->update($table_urls, ['wc_product_id' => $product_id], ['id' => $row->id]);
+      }
     }
   }
 }

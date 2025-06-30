@@ -76,8 +76,8 @@ jQuery(function ($) {
       function (res) {
         if (res.success && res.data.product_id && res.data.price) {
           const newPrice = parseFloat(res.data.price).toFixed(2);
-          const oldText = priceCell.text().replace("£", "").trim();
-          const oldPrice = parseFloat(oldText) || 0;
+          const originalPriceAttr = priceCell.data("original-price");
+          const oldPrice = parseFloat(originalPriceAttr) || 0;
 
           let html = "";
           if (newPrice == oldPrice.toFixed(2)) {
@@ -120,9 +120,9 @@ jQuery(function ($) {
         if (res.success) {
           const { price: newPrice, title: newTitle, edit_link: editLink } = res.data;
 
-          // ✅ Update price
-          const oldText = priceCell.text().replace("£", "").trim();
-          const oldPrice = parseFloat(oldText) || 0;
+          // ✅ Price handling
+          const originalPriceAttr = priceCell.data("original-price");
+          const oldPrice = parseFloat(originalPriceAttr) || 0;
 
           if (parseFloat(newPrice) !== oldPrice) {
             priceCell.html(`
@@ -132,19 +132,27 @@ jQuery(function ($) {
             priceCell.html(`<span style="color: gray;">£${parseFloat(newPrice).toFixed(2)}</span>`);
           }
 
-          // ✅ Update title
-          const oldTitle = titleCell.text().trim();
+          // ✅ Title handling
+          const oldTitle = titleCell.data("original-title") || "";
+
           const titleHtml = editLink
             ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
             : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
 
-          if (oldTitle !== newTitle) {
+          // Decode entities for accurate comparison
+          const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();
+
+          if (decode(oldTitle) !== decode(newTitle)) {
             titleCell.html(`
             <span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span>
             ${titleHtml}`);
           } else {
             titleCell.html(titleHtml);
           }
+
+          // ✅ Update data attributes
+          priceCell.attr("data-original-price", newPrice);
+          titleCell.attr("data-original-title", newTitle);
         } else {
           priceCell.html(`<span style="color:red;">❌</span>`);
           titleCell.html(`<span style="color:red;">❌</span>`);
@@ -181,8 +189,6 @@ jQuery(function ($) {
       },
       function (res) {
         if (res.success) {
-          // alert("✅ Bulk action completed.");
-
           ids.forEach((customId) => {
             const row = $(`tr[data-id='${customId}']`);
             const wcProductId = row.data("product-id") || row.find("td:nth-child(2)").text().trim();
@@ -190,17 +196,14 @@ jQuery(function ($) {
             const priceCell = $(`#product-price-${wcProductId}`);
             const titleCell = $(`#product-title-${wcProductId}`);
 
-            // ✅ DELETE
             if (action === "delete_all") {
               row.fadeOut(300, function () {
                 $(this).remove();
               });
             }
 
-            // ✅ PRICE UPDATE
             if (action === "update_price_all") {
               priceCell.html("<em>Updating...</em>");
-
               $.post(
                 AJDWP_tab2.ajax_url,
                 {
@@ -211,8 +214,8 @@ jQuery(function ($) {
                 function (res2) {
                   if (res2.success && res2.data.product_id && res2.data.price) {
                     const newPrice = parseFloat(res2.data.price).toFixed(2);
-                    const oldText = priceCell.text().replace("£", "").trim();
-                    const oldPrice = parseFloat(oldText) || 0;
+                    const originalPriceAttr = priceCell.data("original-price");
+                    const oldPrice = parseFloat(originalPriceAttr) || 0;
 
                     let html = "";
                     if (newPrice == oldPrice.toFixed(2)) {
@@ -223,6 +226,7 @@ jQuery(function ($) {
                       <span style="color: green; font-weight: bold;">£${newPrice}</span>`;
                     }
                     priceCell.html(html);
+                    priceCell.attr("data-original-price", newPrice);
                   } else {
                     priceCell.html(`<span style="color:red;">❌ Error</span>`);
                   }
@@ -230,7 +234,6 @@ jQuery(function ($) {
               );
             }
 
-            // ✅ FULL UPDATE
             if (action === "full_update_all") {
               priceCell.html("<em>Updating...</em>");
               titleCell.html("<em>Updating...</em>");
@@ -247,8 +250,9 @@ jQuery(function ($) {
                     const { price: newPrice, title: newTitle, edit_link: editLink } = res2.data;
 
                     // 🔁 Price
-                    const oldText = priceCell.text().replace("£", "").trim();
-                    const oldPrice = parseFloat(oldText) || 0;
+                    const originalPriceAttr = priceCell.data("original-price");
+                    const oldPrice = parseFloat(originalPriceAttr) || 0;
+
                     if (parseFloat(newPrice) !== oldPrice) {
                       priceCell.html(`
                       <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
@@ -258,21 +262,25 @@ jQuery(function ($) {
                     }
 
                     // 🔁 Title
-                    const oldTitle = titleCell.text().trim();
-                    if (oldTitle !== newTitle) {
-                      const titleHtml = editLink
-                        ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
-                        : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
+                    const oldTitle = titleCell.data("original-title") || "";
+
+                    const titleHtml = editLink
+                      ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
+                      : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
+                    // Decode entities for accurate comparison
+                    const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();
+
+                    if (decode(oldTitle) !== decode(newTitle)) {
                       titleCell.html(`
                       <span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span>
                       ${titleHtml}`);
                     } else {
-                      titleCell.html(
-                        editLink
-                          ? `<a href="${editLink}" target="_blank" style="color: gray;">${newTitle}</a>`
-                          : `<span style="color: gray;">${newTitle}</span>`
-                      );
+                      titleCell.html(titleHtml);
                     }
+
+                    // ✅ Update data attributes
+                    priceCell.attr("data-original-price", newPrice);
+                    titleCell.attr("data-original-title", newTitle);
                   } else {
                     priceCell.html(`<span style="color:red;">❌</span>`);
                     titleCell.html(`<span style="color:red;">❌</span>`);
@@ -371,7 +379,7 @@ jQuery(function ($) {
         url: ajaxurl,
         method: "POST",
         data: {
-          action: "ajdwp_search_template_products",
+          action: "ajdwp_search_and_sort_template_products",
           security: AJDWP_tab2.nonce,
           template_id: templateId,
           query: query,
@@ -379,12 +387,19 @@ jQuery(function ($) {
           sort_order: sortOrder,
         },
         success: function (res) {
-          if (res.success) {
+          if (res.success && res.data && res.data.html) {
             $("#ajdwp-products-tbody").html(res.data.html);
+
+            // Re-init sort icons and buttons
             updateSortIcons();
+            ajdwpRestoreRowHandlers(); // <- You should define this if needed
           } else {
-            console.warn("Search failed:", res.data.message);
+            $("#ajdwp-products-tbody").html(`<tr><td colspan="8"><em>No products found or search failed.</em></td></tr>`);
+            console.warn("❌ Search or sort failed:", res.data?.message || res);
           }
+        },
+        error: function (xhr, status, error) {
+          console.error("❌ AJAX Error:", error);
         },
       });
     }
@@ -423,4 +438,4 @@ jQuery(function ($) {
 
   ajdwpInitSearchAndSort();
   $(document).on("ajdwp-panel-loaded", ajdwpInitSearchAndSort);
-});
+}); // _____________________________________ END _____________________________________//

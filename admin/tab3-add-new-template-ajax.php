@@ -111,10 +111,6 @@ add_action('wp_ajax_ajdwp_tab3_get_template_panel', function () {
         wp_send_json_error(['message' => 'Template not found']);
     }
 
-    $urls = $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE template_id = %d",
-        $template_id
-    ));
 
     ob_start();
 ?>
@@ -128,7 +124,7 @@ add_action('wp_ajax_ajdwp_tab3_get_template_panel', function () {
             </div>
         <?php endif; ?>
     </div>
-    <p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>
+
     <div class="ajdwp-template-selectors" style="margin: 20px 0;">
         <h3>🔧 Scraping Selectors</h3>
         <table class="form-table">

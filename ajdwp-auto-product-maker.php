@@ -39,7 +39,6 @@ function ajdwp_apm_render_settings_page()
     include AJDWPAPM_PATH . 'admin/settings-page.php';
 }
 
-
 // ============================
 // Admin Scripts & Localisation
 // ============================
