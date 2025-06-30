@@ -438,4 +438,65 @@ jQuery(function ($) {
 
   ajdwpInitSearchAndSort();
   $(document).on("ajdwp-panel-loaded", ajdwpInitSearchAndSort);
-}); // _____________________________________ END _____________________________________//
+}); // _____________________________________ END JQuery_____________________________________//
+
+// ===========================
+// Pagination controls for product table
+// ===========================
+
+jQuery(function ($) {
+  // 1) function to load a given page from server
+  function loadPage(page) {
+    const tpl = $("#ajdwp-product-search").data("template-id");
+    const qry = $("#ajdwp-product-search").val() || "";
+    const fld = $(".sortable.asc, .sortable.desc").data("sort") || "id";
+    const ord = $(".sortable.asc").length ? "asc" : "desc";
+
+    $.post(
+      AJDWP_tab2.ajax_url,
+      {
+        action: "ajdwp_paginate_template_products",
+        security: AJDWP_tab2.nonce,
+        template_id: tpl,
+        query: qry,
+        sort_field: fld,
+        sort_order: ord,
+        page: page,
+      },
+      function (res) {
+        if (!res.success) {
+          console.warn("Pagination error:", res.data?.message);
+          return;
+        }
+        // replace table rows + buttons
+        $("#ajdwp-products-tbody").html(res.data.html);
+        $("#ajdwp-pagination").html(res.data.pagination);
+        bindPaginationButtons(); // re-bind clicks
+      }
+    );
+  }
+
+  // 2) attach click-handler to any .ajdwp-pagination-btn
+  function bindPaginationButtons() {
+    $(document)
+      .off("click", ".ajdwp-pagination-btn")
+      .on("click", ".ajdwp-pagination-btn", function (e) {
+        e.preventDefault();
+        const pg = parseInt($(this).data("page"), 10);
+        if (pg) loadPage(pg);
+      });
+  }
+
+  // 3) when your panel first loads or after search/sort finishes:
+  $(document).on("ajdwp-panel-loaded", function () {
+    loadPage(1);
+  });
+
+  // 4) in case it was already there on initial load:
+  if ($("#ajdwp-products-tbody").length) {
+    loadPage(1);
+  }
+
+  // initialize
+  bindPaginationButtons();
+});
