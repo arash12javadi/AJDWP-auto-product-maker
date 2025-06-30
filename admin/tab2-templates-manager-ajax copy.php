@@ -68,16 +68,96 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                     <th scope="col" class="sortable" data-sort="last_scraped">Date</th>
                     <th scope="col">Actions</th>
                 </tr>
-                <!-- //---------------------------- Table body will be made by js ----------------------------// -->
             </thead>
 
             <tbody id="ajdwp-products-tbody">
+                <?php foreach ($urls as $url): ?>
+                    <?php
+                    $custom_id = $url->id;
+                    $product_url = $url->product_url;
 
+                    // 🔍 Find linked WooCommerce product ID from your URL
+                    $wc_product_id = ajdwp_apm_get_existing_product_id($product_url);
+                    $wc_product = $wc_product_id ? wc_get_product($wc_product_id) : null;
+
+                    $title = $wc_product ? $wc_product->get_name() : '❌ Not found';
+                    $price = $wc_product ? $wc_product->get_price() : '❌';
+
+                    $edit_link = $wc_product_id ? get_edit_post_link($wc_product_id) : '';
+
+                    // Use your thumbnail preview fallback if needed
+                    $image = $wc_product && $wc_product->get_image_id()
+                        ? wp_get_attachment_image_url($wc_product->get_image_id(), 'thumbnail')
+                        : ajdwp_apm_get_image_preview_from_url($product_url);
+                    ?>
+
+                    <tr data-id="<?= esc_attr($custom_id) ?>" data-product-id="<?= esc_attr($wc_product_id) ?>">
+                        <th scope="row" class="check-column">
+                            <?php if ($wc_product_id): ?>
+                                <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($custom_id) ?>">
+                            <?php endif; ?>
+                        </th>
+
+                        <!-- //--------------------------- id ---------------------------// -->
+                        <td data-sort-value="<?= esc_attr($url->wc_product_id) ?>"><?= esc_html($url->wc_product_id) ?></td>
+
+                        <!-- //--------------------------- image ---------------------------// -->
+                        <td>
+                            <?php if (!empty($image)): ?>
+                                <img src="<?= esc_url($image) ?>" style="width:50px;height:auto;" />
+                            <?php else: ?>
+                                <span>No image</span>
+                            <?php endif; ?>
+                        </td>
+
+                        <!-- //--------------------------- title ---------------------------// -->
+                        <td id="product-title-<?= esc_attr($wc_product_id) ?>" data-original-title="<?= esc_attr($title) ?>">
+                            <?php if ($edit_link): ?>
+                                <a href="<?= esc_url($edit_link) ?>" target="_blank"><?= esc_html($title) ?></a>
+                            <?php else: ?>
+                                <?= esc_html($title) ?>
+                            <?php endif; ?>
+                        </td>
+
+                        <!-- //--------------------------- url ---------------------------// -->
+                        <td>
+                            <a href="<?= esc_url($product_url) ?>" target="_blank"><?= esc_html($product_url) ?></a>
+                        </td>
+
+                        <!-- //--------------------------- price ---------------------------// -->
+                        <td id="product-price-<?= esc_attr($wc_product_id) ?>" data-original-price="<?= esc_attr($price) ?>">
+                            £<?= esc_html($price) ?>
+                        </td>
+
+                        <!-- //--------------------------- last_scraped ---------------------------// -->
+                        <td data-sort-value="<?= esc_attr($url->last_scraped) ?>"><?= esc_html($url->last_scraped) ?></td>
+
+                        <!-- //--------------------------- actions ---------------------------// -->
+                        <td>
+                            <button type="button" class="button button-small ajdwp-action-delete" data-id="<?= esc_attr($custom_id) ?>">🗑 Delete</button>
+                            <button type="button" class="button button-small ajdwp-action-update-price"
+                                data-id="<?= esc_attr($custom_id) ?>"
+                                data-product-id="<?= esc_attr($wc_product_id) ?>">
+                                💰 Update Price
+                            </button>
+                            <button type="button" class="button button-small ajdwp-action-full-update"
+                                data-id="<?= esc_attr($custom_id) ?>"
+                                data-product-id="<?= esc_attr($wc_product_id) ?>">
+                                ♻ Full Update
+                            </button>
+
+                        </td>
+
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
 
         <!-- //---------------------------- pagination ----------------------------// -->
         <div id="ajdwp-pagination" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
+            <button id="ajdwp-pagination-prev" class="button">« Prev</button>
+            <span id="ajdwp-pagination-status">Page 1</span>
+            <button id="ajdwp-pagination-next" class="button">Next »</button>
         </div>
 
     </form>
@@ -452,146 +532,148 @@ function ajdwp_handle_bulk_price_multiplier()
 // ===========================
 // AJAX: Search & Sort Template Products
 // ===========================
-
 add_action('wp_ajax_ajdwp_search_and_sort_template_products', function () {
-    if (! check_ajax_referer('ajdwp_template_nonce', 'security', false)) {
-        wp_send_json_error(['message' => 'Security failed']);
+    if (!check_ajax_referer('ajdwp_template_nonce', 'security', false)) {
+        wp_send_json_error(['message' => 'Security check failed']);
     }
+
     global $wpdb;
 
-    // 1) Inputs
-    $template_id = intval($_POST['template_id'] ?? 0);
-    $query       = sanitize_text_field($_POST['query'] ?? '');
-    $sort_field  = sanitize_key($_POST['sort_field'] ?? 'id');
-    $sort_order  = strtoupper($_POST['sort_order'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
-    $page        = max(1, intval($_POST['page'] ?? 1));
+    $template_id = intval($_POST['template_id']);
+    $query = sanitize_text_field($_POST['query'] ?? '');
+    $sort_field = sanitize_key($_POST['sort_field'] ?? 'id');
+    $sort_order = strtoupper($_POST['sort_order'] ?? 'ASC');
 
-    // 2) Paging
-    $per_page = 10; // ← change to 20 if you wish
-    $offset   = ($page - 1) * $per_page;
+    $allowed_fields = ['id', 'wc_product_id', 'wc_title', 'wc_price', 'last_scraped'];
+    $allowed_order = ['ASC', 'DESC'];
 
-    // 3) Sortable columns map
-    $map = [
-        'id'            => 'url.id',
-        'wc_product_id' => 'url.wc_product_id',
-        'wc_price'      => 'url.price',
-        'last_scraped'  => 'url.last_scraped',
-    ];
-    $order_by = $map[$sort_field] ?? 'url.id';
+    if (!in_array($sort_field, $allowed_fields, true)) $sort_field = 'id';
+    if (!in_array($sort_order, $allowed_order, true)) $sort_order = 'ASC';
 
-    // 4) Build WHERE clause
-    $where = $wpdb->prepare('url.template_id = %d', $template_id);
-    if ($query !== '') {
-        $like = '%' . $wpdb->esc_like($query) . '%';
-        $where .= $wpdb->prepare("
-        AND (
-          url.product_url LIKE %s
-          OR EXISTS(
-            SELECT 1 FROM {$wpdb->prefix}posts p
-             WHERE p.ID = url.wc_product_id
-               AND p.post_title LIKE %s
-          )
-        )
-      ", $like, $like);
+    $sql = $wpdb->prepare("
+        SELECT * FROM {$wpdb->prefix}ajdwp_template_urls
+        WHERE template_id = %d
+    ", $template_id);
+
+    $all_rows = $wpdb->get_results($sql);
+
+    // Filter using WooCommerce product title or product URL
+    $rows = array_filter($all_rows, function ($row) use ($query) {
+        $wc_product_id = ajdwp_apm_get_existing_product_id($row->product_url);
+        $wc_product = $wc_product_id ? wc_get_product($wc_product_id) : null;
+        $title = $wc_product ? $wc_product->get_name() : '';
+
+        return stripos($title, $query) !== false || stripos($row->product_url, $query) !== false;
+    });
+
+    // Enrich rows with live WC data
+    $enriched = [];
+
+    foreach ($rows as $url) {
+        $product_url = $url->product_url;
+        $wc_product_id = ajdwp_apm_get_existing_product_id($product_url);
+        $wc_product = $wc_product_id ? wc_get_product($wc_product_id) : null;
+
+        $enriched[] = (object) [
+            'custom_id'     => $url->id,
+            'product_url'   => $product_url,
+            'last_scraped'  => $url->last_scraped,
+            'wc_product_id' => $wc_product_id,
+            'title'         => $wc_product ? $wc_product->get_name() : '',
+            'price'         => $wc_product ? floatval($wc_product->get_price()) : 0,
+            'edit_link'     => $wc_product_id ? get_edit_post_link($wc_product_id) : '',
+            'image_url'     => $wc_product && $wc_product->get_image_id()
+                ? wp_get_attachment_image_url($wc_product->get_image_id(), 'thumbnail')
+                : ajdwp_apm_get_image_preview_from_url($product_url)
+        ];
     }
 
-    // 5) Count total matches
-    $total = intval($wpdb->get_var("
-      SELECT COUNT(*) 
-      FROM {$wpdb->prefix}ajdwp_template_urls url
-      LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
-      WHERE $where
-    "));
+    // Sort enriched data
+    usort($enriched, function ($a, $b) use ($sort_field, $sort_order) {
+        switch ($sort_field) {
+            case 'wc_title':
+                $valA = $a->title;
+                $valB = $b->title;
+                break;
+            case 'wc_price':
+                $valA = floatval($a->price);
+                $valB = floatval($b->price);
+                break;
+            case 'wc_product_id':
+                $valA = intval($a->wc_product_id);
+                $valB = intval($b->wc_product_id);
+                break;
+            case 'last_scraped':
+                $valA = strtotime($a->last_scraped);
+                $valB = strtotime($b->last_scraped);
+                break;
+            default:
+                $valA = $a->custom_id;
+                $valB = $b->custom_id;
+                break;
+        }
 
-    // 6) Fetch only this page
-    $rows = $wpdb->get_results("
-      SELECT url.* 
-      FROM {$wpdb->prefix}ajdwp_template_urls url
-      LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
-      WHERE $where
-      ORDER BY $order_by $sort_order
-      LIMIT $offset, $per_page
-    ");
+        if (is_numeric($valA) && is_numeric($valB)) {
+            return $sort_order === 'ASC' ? $valA <=> $valB : $valB <=> $valA;
+        }
 
-    // 7) Render <tr> for these rows
+        return $sort_order === 'ASC'
+            ? strnatcasecmp($valA, $valB)
+            : strnatcasecmp($valB, $valA);
+    });
+
+
+    // Render rows
     ob_start();
-    foreach ($rows as $url) {
-        $cid     = $url->id;
-        $pu      = $url->product_url;
-        $wid     = ajdwp_apm_get_existing_product_id($pu);
-        $wpobj   = $wid ? wc_get_product($wid) : null;
-        $title   = $wpobj ? $wpobj->get_name() : '';
-        $price   = $wpobj ? floatval($wpobj->get_price()) : '';
-        $edit    = $wid ? get_edit_post_link($wid) : '';
-        $img     = $wpobj && $wpobj->get_image_id()
-            ? wp_get_attachment_image_url($wpobj->get_image_id(), 'thumbnail')
-            : ajdwp_apm_get_image_preview_from_url($pu);
-    ?>
-        <tr data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">
-            <th class="check-column">
-                <?php if ($wid): ?>
-                    <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($cid) ?>">
+    foreach ($enriched as $item): ?>
+        <tr data-id="<?= esc_attr($item->custom_id) ?>" data-product-id="<?= esc_attr($item->wc_product_id) ?>">
+            <th scope="row" class="check-column">
+                <?php if ($item->wc_product_id): ?>
+                    <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($item->custom_id) ?>">
                 <?php endif; ?>
             </th>
-            <td><?= esc_html($wid ?: '—') ?></td>
-            <td>
-                <?php if ($img): ?>
-                    <img src="<?= esc_url($img) ?>" style="width:50px;height:auto;">
-                <?php else: ?>
-                    No image
-                <?php endif; ?>
+            <td data-sort-value="<?= esc_attr($item->wc_product_id ?: 0) ?>">
+                <?= esc_html($item->wc_product_id ?: '—') ?>
             </td>
             <td>
-                <?php if ($edit): ?>
-                    <a href="<?= esc_url($edit) ?>" target="_blank"><?= esc_html($title) ?></a>
+                <?php if (!empty($item->image_url)): ?>
+                    <img src="<?= esc_url($item->image_url) ?>" style="width:50px;height:auto;" />
                 <?php else: ?>
-                    <?= esc_html($title) ?>
+                    <span>No image</span>
                 <?php endif; ?>
             </td>
-            <td><a href="<?= esc_url($pu) ?>" target="_blank"><?= esc_html($pu) ?></a></td>
-            <td>£<?= esc_html(number_format($price, 2)) ?></td>
-            <td><?= esc_html($url->last_scraped) ?></td>
+            <td id="product-title-<?= esc_attr($item->wc_product_id) ?>" data-original-title="<?= esc_attr($item->title) ?>">
+                <?php if ($item->edit_link): ?>
+                    <a href="<?= esc_url($item->edit_link) ?>" target="_blank"><?= esc_html($item->title) ?></a>
+                <?php else: ?>
+                    <?= esc_html($item->title) ?>
+                <?php endif; ?>
+            </td>
+            <td><a href="<?= esc_url($item->product_url) ?>" target="_blank"><?= esc_html($item->product_url) ?></a></td>
+            <td id="product-price-<?= esc_attr($item->wc_product_id) ?>" data-original-price="<?= esc_attr($item->price) ?>">
+                £<?= esc_html($item->price) ?>
+            </td>
+            <td data-sort-value="<?= esc_attr($item->last_scraped ?: '') ?>">
+                <?= esc_html($item->last_scraped ? date('Y-m-d H:i:s', strtotime($item->last_scraped)) : '—') ?>
+            </td>
             <td>
-                <button type="button" class="button ajdwp-action-delete" data-id="<?= esc_attr($cid) ?>">🗑</button>
-                <button type="button" class="button ajdwp-action-update-price" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">💰</button>
-                <button type="button" class="button ajdwp-action-full-update" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">♻</button>
+                <button type="button" class="button button-small ajdwp-action-delete" data-id="<?= esc_attr($item->custom_id) ?>">🗑 Delete</button>
+                <button type="button" class="button button-small ajdwp-action-update-price"
+                    data-id="<?= esc_attr($item->custom_id) ?>"
+                    data-product-id="<?= esc_attr($item->wc_product_id) ?>">
+                    💰 Update Price
+                </button>
+                <button type="button" class="button button-small ajdwp-action-full-update"
+                    data-id="<?= esc_attr($item->custom_id) ?>"
+                    data-product-id="<?= esc_attr($item->wc_product_id) ?>">
+                    ♻ Full Update
+                </button>
             </td>
         </tr>
-    <?php
-    }
+    <?php endforeach;
+
     $html = ob_get_clean();
-
-    // 8) Build Prev / numbered / Next buttons
-    $total_pages = max(1, ceil($total / $per_page));
-    ob_start();
-    if ($page > 1) {
-        printf(
-            '<button type="button" class="button ajdwp-pagination-prev" data-page="%d">« Prev</button>',
-            $page - 1
-        );
-    }
-    for ($i = 1; $i <= $total_pages; $i++) {
-        printf(
-            '<button type="button" class="button ajdwp-pagination-btn %s" data-page="%d">%d</button>',
-            $i === $page ? 'active' : '',
-            $i,
-            $i
-        );
-    }
-    if ($page < $total_pages) {
-        printf(
-            '<button type="button" class="button ajdwp-pagination-next" data-page="%d">Next »</button>',
-            $page + 1
-        );
-    }
-    $pagination = ob_get_clean();
-
-    // 9) Send it all back
-    wp_send_json_success([
-        'html'         => $html,
-        'pagination'   => $pagination,
-        'total_pages'  => $total_pages,
-    ]);
+    wp_send_json_success(['html' => $html]);
 });
 
 
@@ -604,134 +686,126 @@ add_action('wp_ajax_ajdwp_paginate_template_products', function () {
     }
     global $wpdb;
 
-    // 1) inputs
-    $tid       = intval($_POST['template_id'] ?? 0);
-    $query     = sanitize_text_field($_POST['query'] ?? '');
-    $sf        = sanitize_key($_POST['sort_field'] ?? 'id');
-    $so        = strtoupper($_POST['sort_order'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
-    $page      = max(1, intval($_POST['page'] ?? 1));
+    // 1) incoming params
+    $template_id = intval($_POST['template_id'] ?? 0);
+    $query       = sanitize_text_field($_POST['query'] ?? '');
+    $sort_field  = sanitize_key($_POST['sort_field'] ?? 'id');
+    $sort_order  = strtoupper($_POST['sort_order'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+    $page        = max(1, intval($_POST['page'] ?? 1));
 
-    // 2) page size:
-    $per_page = 1; // ← bump to 20 if you like
+    // 2) page size (change to 20 if you prefer)
+    $per_page = 10;
 
-    // 3) map sort keys
+    // 3) map your sortable fields to real columns
     $map = [
         'id'            => 'url.id',
         'wc_product_id' => 'url.wc_product_id',
         'wc_price'      => 'url.price',
         'last_scraped'  => 'url.last_scraped',
     ];
-    $order_by = $map[$sf] ?? 'url.id';
+    $order_by = $map[$sort_field] ?? 'url.id';
 
-    // 4) build WHERE
-    $where = $wpdb->prepare('url.template_id = %d', $tid);
+    // 4) build WHERE (template + optional search)
+    $where = $wpdb->prepare('url.template_id = %d', $template_id);
     if ($query !== '') {
         $like = '%' . $wpdb->esc_like($query) . '%';
         $where .= $wpdb->prepare(
             " AND (
-            url.product_url LIKE %s
-            OR EXISTS(
-                SELECT 1 FROM {$wpdb->prefix}posts p
-                WHERE p.ID = url.wc_product_id
-                  AND p.post_title LIKE %s
-            )
-         )",
+             url.product_url LIKE %s
+             OR EXISTS(
+                 SELECT 1 FROM {$wpdb->prefix}posts p
+                 WHERE p.ID = url.wc_product_id
+                   AND p.post_title LIKE %s
+             )
+          )",
             $like,
             $like
         );
     }
 
-    // 5) total count
+    // 5) count total matching rows
     $total = intval($wpdb->get_var("
-      SELECT COUNT(*) 
-      FROM {$wpdb->prefix}ajdwp_template_urls url
+      SELECT COUNT(*) FROM {$wpdb->prefix}ajdwp_template_urls url
       LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
       WHERE $where
     "));
 
-    // 6) slice fetch
+    // 6) fetch just this page
     $offset = ($page - 1) * $per_page;
     $rows   = $wpdb->get_results("
       SELECT url.* 
       FROM {$wpdb->prefix}ajdwp_template_urls url
       LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
       WHERE $where
-      ORDER BY $order_by $so
+      ORDER BY $order_by $sort_order
       LIMIT $offset, $per_page
     ");
 
-    // 7) render only this page’s <tr>s
+    // 7) render the <tr> exactly as your search handler does
     ob_start();
     foreach ($rows as $url) {
-        // — your existing enrichment logic here —
-        $cid     = $url->id;
-        $pu      = $url->product_url;
-        $wid     = ajdwp_apm_get_existing_product_id($pu);
-        $wp      = $wid ? wc_get_product($wid) : null;
-        $title   = $wp ? $wp->get_name() : '';
-        $price   = $wp ? floatval($wp->get_price()) : '';
-        $edit    = $wid ? get_edit_post_link($wid) : '';
-        $img     = $wp && $wp->get_image_id()
-            ? wp_get_attachment_image_url($wp->get_image_id(), 'thumbnail')
-            : ajdwp_apm_get_image_preview_from_url($pu);
+        // — your enrichment logic (get $wc_id, $wc_product, $title, $price, $image, $edit_link) —
+        $custom_id   = $url->id;
+        $product_url = $url->product_url;
+        $wc_id       = ajdwp_apm_get_existing_product_id($product_url);
+        $wc_product  = $wc_id ? wc_get_product($wc_id) : null;
+        $title       = $wc_product ? $wc_product->get_name() : '';
+        $price       = $wc_product ? floatval($wc_product->get_price()) : '';
+        $edit_link   = $wc_id ? get_edit_post_link($wc_id) : '';
+        $image_url   = $wc_product && $wc_product->get_image_id()
+            ? wp_get_attachment_image_url($wc_product->get_image_id(), 'thumbnail')
+            : ajdwp_apm_get_image_preview_from_url($product_url);
     ?>
-        <tr data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">
+        <tr data-id="<?= esc_attr($custom_id) ?>" data-product-id="<?= esc_attr($wc_id) ?>">
             <th class="check-column">
-                <?php if ($wid): ?>
-                    <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($cid) ?>">
+                <?php if ($wc_id): ?>
+                    <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($custom_id) ?>">
                 <?php endif; ?>
             </th>
-            <td><?= esc_html($wid ?: '—') ?></td>
+            <td><?= esc_html($wc_id ?: '—') ?></td>
             <td>
-                <?php if ($img): ?>
-                    <img src="<?= esc_url($img) ?>" style="width:50px;height:auto;">
+                <?php if ($image_url): ?>
+                    <img src="<?= esc_url($image_url) ?>" style="width:50px;height:auto;">
                 <?php else: ?>
                     No image
                 <?php endif; ?>
             </td>
             <td>
-                <?php if ($edit): ?>
-                    <a href="<?= esc_url($edit) ?>" target="_blank"><?= esc_html($title) ?></a>
+                <?php if ($edit_link): ?>
+                    <a href="<?= esc_url($edit_link) ?>" target="_blank"><?= esc_html($title) ?></a>
                 <?php else: ?>
                     <?= esc_html($title) ?>
                 <?php endif; ?>
             </td>
-            <td><a href="<?= esc_url($pu) ?>" target="_blank"><?= esc_html($pu) ?></a></td>
+            <td><a href="<?= esc_url($product_url) ?>" target="_blank"><?= esc_html($product_url) ?></a></td>
             <td>£<?= esc_html(number_format($price, 2)) ?></td>
             <td><?= esc_html($url->last_scraped) ?></td>
             <td>
-                <button class="button ajdwp-action-delete" data-id="<?= esc_attr($cid) ?>">🗑</button>
-                <button class="button ajdwp-action-update-price" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">💰</button>
-                <button class="button ajdwp-action-full-update" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">♻</button>
+                <button class="button ajdwp-action-delete" data-id="<?= esc_attr($custom_id) ?>">🗑 Delete</button>
+                <button class="button ajdwp-action-update-price" data-id="<?= esc_attr($custom_id) ?>" data-product-id="<?= esc_attr($wc_id) ?>">💰 Update Price</button>
+                <button class="button ajdwp-action-full-update" data-id="<?= esc_attr($custom_id) ?>" data-product-id="<?= esc_attr($wc_id) ?>">♻ Full Update</button>
             </td>
         </tr>
 <?php
     }
     $html = ob_get_clean();
 
-    // 8) build Prev / 1 2 3 / Next buttons
+    // 8) build the numeric page buttons
     $total_pages = max(1, ceil($total / $per_page));
     ob_start();
-    if ($page > 1) {
-        printf('<button type="button" class="button ajdwp-pagination-prev" data-page="%d">« Prev</button>', $page - 1);
-    }
     for ($i = 1; $i <= $total_pages; $i++) {
         printf(
-            '<button type="button" class="button ajdwp-pagination-btn %s" data-page="%d">%d</button>',
+            '<button class="button ajdwp-pagination-btn %s" data-page="%d">%d</button>',
             $i === $page ? 'active' : '',
             $i,
             $i
         );
     }
-    if ($page < $total_pages) {
-        printf('<button type="button" class="button ajdwp-pagination-next" data-page="%d">Next »</button>', $page + 1);
-    }
     $pagination = ob_get_clean();
 
-    // 9) return both
+    // 9) return both chunks
     wp_send_json_success([
-        'html'         => $html,
-        'pagination'   => $pagination,
-        'total_pages'  => $total_pages,
+        'html'       => $html,
+        'pagination' => $pagination,
     ]);
 });

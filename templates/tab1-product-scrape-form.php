@@ -1,4 +1,5 @@
 <?php
+//_____________________________________ tab1-product-scrape-form.php _____________________________________//
 
 // ===============================
 // Handle Form Submission
@@ -223,4 +224,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
     </table>
 
     <p><button class="button button-primary">🔍 Preview Product</button></p>
+
+    <div id="ajdwp-add-products-in-bulk" style="display: none;">
+        <h2>Bulk Add Products</h2>
+        <div id="bulk-add-urls">
+            <div class="bulk-url-row">
+                <input type="url"
+                    name="bulk_product_urls[]"
+                    placeholder="Enter product URL"
+                    style="width:80%;"
+                    required />
+            </div>
+        </div>
+        <p>
+            <button type="button" id="add-bulk-url" class="button">
+                + Add another URL
+            </button>
+            <button type="button" id="add-bulk-submit" class="button button-secondary">
+                ✅ Bulk Add to Template
+            </button>
+        </p>
+        <div id="bulk-add-notice"></div>
+    </div>
+
 </form>

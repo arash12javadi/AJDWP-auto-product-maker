@@ -362,120 +362,90 @@ jQuery(function ($) {
       }
     );
   });
-}); // _____________________________________ END JQuery_____________________________________//
 
-// ==============================
-// Search & Sort Template Products
-// ==============================
-jQuery(function ($) {
-  let lastPage = 1,
-    totalPages = 1;
-  let sortField = "id",
-    sortOrder = "asc";
-  let searchTimer;
+  // ==============================
+  // Search & Sort Template Products
+  // ==============================
+  function ajdwpInitSearchAndSort() {
+    let timer;
+    let sortField = "id";
+    let sortOrder = "asc";
 
-  // 1) Load any page (with current search & sort)
-  function loadPage(page) {
-    const tpl = $("#ajdwp-product-search").data("template-id");
-    const qry = $("#ajdwp-product-search").val() || "";
-    const fld = sortField;
-    const ord = sortOrder;
-    $.post(
-      AJDWP_tab2.ajax_url,
-      {
-        action: "ajdwp_search_and_sort_template_products",
-        security: AJDWP_tab2.nonce,
-        template_id: tpl,
-        query: qry,
-        sort_field: fld,
-        sort_order: ord,
-        page: page,
-      },
-      function (res) {
-        if (!res.success) {
-          console.warn("Pagination error:", res.data?.message);
-          return;
-        }
-        $("#ajdwp-products-tbody").html(res.data.html);
-        $("#ajdwp-pagination").html(res.data.pagination);
-        lastPage = page;
-        totalPages = res.data.total_pages;
-        bindPagination(); // re-bind buttons
-      }
-    );
-  }
+    function fetchProducts(query = "") {
+      const templateId = $("#ajdwp-product-search").data("template-id");
+      if (!templateId) return;
 
-  // 2) Bind Prev / Next / numbered clicks
-  function bindPagination() {
-    $(document)
-      .off("click", ".ajdwp-pagination-btn, .ajdwp-pagination-prev, .ajdwp-pagination-next")
-      .on("click", ".ajdwp-pagination-btn", function (e) {
-        e.preventDefault();
-        const p = parseInt($(this).data("page"), 10);
-        if (p && p !== lastPage) loadPage(p);
-      })
-      .on("click", ".ajdwp-pagination-prev", function (e) {
-        e.preventDefault();
-        if (lastPage > 1) loadPage(lastPage - 1);
-      })
-      .on("click", ".ajdwp-pagination-next", function (e) {
-        e.preventDefault();
-        if (lastPage < totalPages) loadPage(lastPage + 1);
+      $.ajax({
+        url: ajaxurl,
+        method: "POST",
+        data: {
+          action: "ajdwp_search_and_sort_template_products",
+          security: AJDWP_tab2.nonce,
+          template_id: templateId,
+          query: query,
+          sort_field: sortField,
+          sort_order: sortOrder,
+        },
+        success: function (res) {
+          if (res.success && res.data && res.data.html) {
+            $("#ajdwp-products-tbody").html(res.data.html);
+
+            // Re-init sort icons and buttons
+            updateSortIcons();
+            ajdwpRestoreRowHandlers(); // <- You should define this if needed
+          } else {
+            $("#ajdwp-products-tbody").html(`<tr><td colspan="8"><em>No products found or search failed.</em></td></tr>`);
+            console.warn("❌ Search or sort failed:", res.data?.message || res);
+          }
+        },
+        error: function (xhr, status, error) {
+          console.error("❌ AJAX Error:", error);
+        },
       });
-  }
+    }
 
-  // 3) Search box → page 1
-  $(document)
-    .off("input", "#ajdwp-product-search")
-    .on("input", "#ajdwp-product-search", function () {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => loadPage(1), 300);
-    });
-
-  // 4) Sort headers → toggle & page 1
-  $(document)
-    .off("click", ".sortable")
-    .on("click", ".sortable", function () {
-      const nf = $(this).data("sort");
-      if (!nf) return;
-      if (sortField === nf) {
-        sortOrder = sortOrder === "asc" ? "desc" : "asc";
-      } else {
-        sortField = nf;
-        sortOrder = "asc";
-      }
-      // update visual classes
+    function updateSortIcons() {
       $(".sortable").removeClass("asc desc");
       $(`.sortable[data-sort="${sortField}"]`).addClass(sortOrder);
-      loadPage(1);
-    });
+    }
 
-  // 5) On panel load, kick off page 1
-  $(document).on("ajdwp-panel-loaded", function () {
-    // reset to defaults if you like:
-    sortField = "id";
-    sortOrder = "asc";
-    $(".sortable").removeClass("asc desc");
-    $(`.sortable[data-sort="${sortField}"]`).addClass(sortOrder);
+    $(document)
+      .off("input", "#ajdwp-product-search")
+      .on("input", "#ajdwp-product-search", function () {
+        const q = $(this).val();
+        clearTimeout(timer);
+        timer = setTimeout(() => fetchProducts(q), 300);
+      });
 
-    loadPage(1);
-  });
+    $(document)
+      .off("click", ".sortable")
+      .on("click", ".sortable", function () {
+        const newField = $(this).data("sort");
+        if (!newField) return;
 
-  // 6) If panel is already there on page load
-  if ($("#ajdwp-products-tbody").length) {
-    loadPage(1);
+        if (sortField === newField) {
+          sortOrder = sortOrder === "asc" ? "desc" : "asc";
+        } else {
+          sortField = newField;
+          sortOrder = "asc";
+        }
+
+        fetchProducts($("#ajdwp-product-search").val());
+      });
+
+    updateSortIcons();
   }
-});
+
+  ajdwpInitSearchAndSort();
+  $(document).on("ajdwp-panel-loaded", ajdwpInitSearchAndSort);
+}); // _____________________________________ END JQuery_____________________________________//
 
 // ===========================
 // Pagination controls for product table
 // ===========================
 
 jQuery(function ($) {
-  let lastPage = 1,
-    totalPages = 1;
-
-  // load & render a page
+  // 1) function to load a given page from server
   function loadPage(page) {
     const tpl = $("#ajdwp-product-search").data("template-id");
     const qry = $("#ajdwp-product-search").val() || "";
@@ -498,43 +468,35 @@ jQuery(function ($) {
           console.warn("Pagination error:", res.data?.message);
           return;
         }
+        // replace table rows + buttons
         $("#ajdwp-products-tbody").html(res.data.html);
         $("#ajdwp-pagination").html(res.data.pagination);
-
-        lastPage = page;
-        totalPages = res.data.total_pages;
-
-        bindPagination();
+        bindPaginationButtons(); // re-bind clicks
       }
     );
   }
 
-  // bind all pagination buttons
-  function bindPagination() {
+  // 2) attach click-handler to any .ajdwp-pagination-btn
+  function bindPaginationButtons() {
     $(document)
-      .off("click", ".ajdwp-pagination-btn, .ajdwp-pagination-prev, .ajdwp-pagination-next")
+      .off("click", ".ajdwp-pagination-btn")
       .on("click", ".ajdwp-pagination-btn", function (e) {
         e.preventDefault();
-        const p = parseInt($(this).data("page"), 10);
-        if (p && p !== lastPage) loadPage(p);
-      })
-      .on("click", ".ajdwp-pagination-prev", function (e) {
-        e.preventDefault();
-        if (lastPage > 1) loadPage(lastPage - 1);
-      })
-      .on("click", ".ajdwp-pagination-next", function (e) {
-        e.preventDefault();
-        if (lastPage < totalPages) loadPage(lastPage + 1);
+        const pg = parseInt($(this).data("page"), 10);
+        if (pg) loadPage(pg);
       });
   }
 
-  // trigger page-1 load after panel & after any search/sort
+  // 3) when your panel first loads or after search/sort finishes:
   $(document).on("ajdwp-panel-loaded", function () {
     loadPage(1);
   });
 
-  // in case panel was already visible on page load
+  // 4) in case it was already there on initial load:
   if ($("#ajdwp-products-tbody").length) {
     loadPage(1);
   }
+
+  // initialize
+  bindPaginationButtons();
 });

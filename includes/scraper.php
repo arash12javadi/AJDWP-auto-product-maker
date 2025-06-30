@@ -1,4 +1,6 @@
 <?php
+//_____________________________________ scraper.php _____________________________________//
+
 require_once AJDWPAPM_PATH . 'includes/simple_html_dom.php';
 
 function ajdwp_apm_get_rendered_html($url)
