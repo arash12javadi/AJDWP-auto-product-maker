@@ -532,23 +532,31 @@ add_action('wp_ajax_ajdwp_table_list_products', function () {
                     <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($cid) ?>">
                 <?php endif; ?>
             </th>
-            <td><?= esc_html($wid ?: '—') ?></td>
             <td>
-                <?php if ($img): ?>
+                <?php if ($wid && $edit): ?>
+                    <a href="<?= esc_url($edit) ?>" target="_blank"><?= esc_html($wid) ?></a>
+                <?php else: ?>
+                    <?= esc_html($wid ?: '—') ?>
+                <?php endif; ?>
+            </td>
+            <td>
+                <?php if ($img && $edit): ?>
+                    <a href="<?= esc_url($edit) ?>" target="_blank">
+                        <img src="<?= esc_url($img) ?>" style="width:50px;height:auto;">
+                    </a>
+                <?php elseif ($img): ?>
                     <img src="<?= esc_url($img) ?>" style="width:50px;height:auto;">
                 <?php else: ?>
                     No image
                 <?php endif; ?>
             </td>
-            <td id="product-title-<?= esc_attr($wid) ?>" data-original-title="<?= esc_attr($title) ?>">
-                <?php if ($edit): ?>
-                    <a href="<?= esc_url($edit) ?>" target="_blank"><?= esc_html($title) ?></a>
-                <?php else: ?>
-                    <?= esc_html($title) ?>
-                <?php endif; ?>
+            <td id="product-title-<?= esc_attr($wid) ?>" class="editable-title" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>" data-original-title="<?= esc_attr($title) ?>">
+                <?= esc_html($title) ?>
             </td>
             <td><a href="<?= esc_url($pu) ?>" target="_blank"><?= esc_html($pu) ?></a></td>
-            <td id="product-price-<?= esc_attr($wid) ?>" data-original-price="<?= esc_attr($price) ?>">£<?= esc_html(number_format($price, 2)) ?></td>
+            <td id="product-price-<?= esc_attr($wid) ?>" class="editable-price" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>" data-original-price="<?= esc_attr($price) ?>">
+                £<?= esc_html(number_format($price, 2)) ?>
+            </td>
             <td><?= esc_html($url->last_scraped) ?></td>
             <td>
                 <button type="button" class="button ajdwp-action-delete" data-id="<?= esc_attr($cid) ?>">🗑</button>
@@ -584,4 +592,43 @@ add_action('wp_ajax_ajdwp_table_list_products', function () {
         'pagination'   => $pagination,
         'total_pages'  => $total_pages,
     ]);
+});
+
+//==========================
+//  inline product title and price edit popup
+//==========================
+add_action('wp_ajax_ajdwp_update_single_field', function () {
+    check_ajax_referer('ajdwp_template_nonce');
+    global $wpdb;
+
+    $id = intval($_POST['id']);
+    $type = sanitize_text_field($_POST['type']);
+    $value = wp_unslash($_POST['value']);
+
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
+        $id
+    ));
+    if (!$row) wp_send_json_error(['message' => 'Product not found']);
+
+    $product_id = ajdwp_apm_get_existing_product_id($row->product_url);
+    if (!$product_id) wp_send_json_error(['message' => 'Product not found']);
+
+    $ok = false;
+    if ($type === 'title') {
+        $ok = wp_update_post(['ID' => $product_id, 'post_title' => sanitize_text_field($value)]);
+        $wpdb->update("{$wpdb->prefix}ajdwp_template_urls", ['title' => $value], ['id' => $id]);
+    }
+    if ($type === 'price') {
+        $v = floatval($value);
+        update_post_meta($product_id, '_price', $v);
+        update_post_meta($product_id, '_sale_price', $v);
+        update_post_meta($product_id, '_regular_price', $v);
+        $wpdb->update("{$wpdb->prefix}ajdwp_template_urls", ['price' => $v], ['id' => $id]);
+        $ok = true;
+    }
+    if ($ok !== false) {
+        wp_send_json_success();
+    }
+    wp_send_json_error(['message' => 'Update failed']);
 });

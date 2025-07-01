@@ -461,3 +461,90 @@ jQuery(function ($) {
     loadPage(1);
   }
 });
+
+//==========================
+//  inline product title and price edit popup
+//==========================
+
+jQuery(function ($) {
+  // Show popup for title
+  $(document).on("click", ".editable-title", function () {
+    const cid = $(this).data("id");
+    const wid = $(this).data("product-id");
+    const title = $(this).data("original-title") || $(this).text().trim();
+
+    $("#ajdwp-edit-popup-title").text("Edit Product Title");
+    $("#ajdwp-edit-popup-type").val("title");
+    $("#ajdwp-edit-popup-cid").val(cid);
+    $("#ajdwp-edit-popup-wid").val(wid);
+    $("#ajdwp-edit-popup-field").html(
+      `<input type="text" id="ajdwp-edit-popup-input" class="regular-text" value="${$("<div>").text(title).html()}" style="width:100%;">`
+    );
+    $("#ajdwp-edit-popup").show();
+    setTimeout(() => {
+      $("#ajdwp-edit-popup-input").focus();
+    }, 100);
+  });
+
+  // Show popup for price
+  $(document).on("click", ".editable-price", function () {
+    const cid = $(this).data("id");
+    const wid = $(this).data("product-id");
+    const price = $(this).data("original-price") || $(this).text().replace("£", "").trim();
+
+    $("#ajdwp-edit-popup-title").text("Edit Product Price");
+    $("#ajdwp-edit-popup-type").val("price");
+    $("#ajdwp-edit-popup-cid").val(cid);
+    $("#ajdwp-edit-popup-wid").val(wid);
+    $("#ajdwp-edit-popup-field").html(
+      `<input type="number" step="0.01" id="ajdwp-edit-popup-input" class="regular-text" value="${price}" style="width:100%;">`
+    );
+    $("#ajdwp-edit-popup").show();
+    setTimeout(() => {
+      $("#ajdwp-edit-popup-input").focus();
+    }, 100);
+  });
+
+  // Hide/cancel popup
+  $("#ajdwp-edit-popup-cancel").on("click", function () {
+    $("#ajdwp-edit-popup").hide();
+  });
+
+  // Save handler for popup
+  $("#ajdwp-edit-popup-form").on("submit", function (e) {
+    e.preventDefault();
+    const type = $("#ajdwp-edit-popup-type").val();
+    const cid = $("#ajdwp-edit-popup-cid").val();
+    const wid = $("#ajdwp-edit-popup-wid").val();
+    const value = $("#ajdwp-edit-popup-input").val();
+
+    if (!cid || !type || !value) return;
+
+    $("#ajdwp-edit-popup").hide();
+
+    // AJAX: save field
+    $.post(
+      AJDWP_tab2.ajax_url,
+      {
+        action: "ajdwp_update_single_field",
+        _ajax_nonce: AJDWP_tab2.nonce,
+        id: cid,
+        type: type,
+        value: value,
+      },
+      function (res) {
+        if (res.success) {
+          if (type === "title") {
+            $(`#product-title-${wid}`).text(value);
+            $(`#product-title-${wid}`).data("original-title", value);
+          } else if (type === "price") {
+            $(`#product-price-${wid}`).text("£" + parseFloat(value).toFixed(2));
+            $(`#product-price-${wid}`).data("original-price", parseFloat(value).toFixed(2));
+          }
+        } else {
+          alert("❌ Update failed.");
+        }
+      }
+    );
+  });
+});

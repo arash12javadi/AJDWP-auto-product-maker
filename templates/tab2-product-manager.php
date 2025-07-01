@@ -33,3 +33,24 @@ $templates = $wpdb->get_results("
      Admin Controls for Template (AJAX Populated)
 =========================== -->
 <div id="selected-template-panel" style="margin-top: 30px;"></div>
+
+
+<!-- 
+//==========================
+//  inline product title and price edit popup
+//========================== 
+-->
+
+<div id="ajdwp-edit-popup" style="display:none; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid #ccc; padding:20px; z-index:10000;">
+    <h2 id="ajdwp-edit-popup-title">Edit</h2>
+    <form id="ajdwp-edit-popup-form">
+        <input type="hidden" id="ajdwp-edit-popup-type" value="">
+        <input type="hidden" id="ajdwp-edit-popup-cid" value="">
+        <input type="hidden" id="ajdwp-edit-popup-wid" value="">
+        <div id="ajdwp-edit-popup-field"></div>
+        <div style="margin-top:10px;">
+            <button type="submit" class="button button-primary">Save</button>
+            <button type="button" class="button" id="ajdwp-edit-popup-cancel">Cancel</button>
+        </div>
+    </form>
+</div>
