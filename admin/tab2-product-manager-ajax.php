@@ -1,6 +1,6 @@
 <?php
-
 //_____________________________________ tab2-product-manager-ajax.php _____________________________________//
+require_once AJDWPAPM_PATH . 'includes/helpers.php';
 
 // ============================
 // AJAX: Load Template Panel
@@ -376,7 +376,6 @@ function ajdwp_handle_bulk_product_action()
 // ============================
 // AJAX: Bulk Price Multiplier
 // ============================
-
 add_action('wp_ajax_ajdwp_bulk_price_multiplier', 'ajdwp_handle_bulk_price_multiplier');
 function ajdwp_handle_bulk_price_multiplier()
 {
