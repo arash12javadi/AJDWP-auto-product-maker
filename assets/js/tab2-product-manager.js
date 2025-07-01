@@ -135,9 +135,7 @@ jQuery(function ($) {
           // ✅ Title handling
           const oldTitle = titleCell.data("original-title") || "";
 
-          const titleHtml = editLink
-            ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
-            : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
+          const titleHtml = editLink ? `<span  style="color: gray;">${newTitle}</span>` : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
 
           // Decode entities for accurate comparison
           const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();

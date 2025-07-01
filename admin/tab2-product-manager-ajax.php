@@ -1,6 +1,5 @@
 <?php
 //_____________________________________ tab2-product-manager-ajax.php _____________________________________//
-require_once AJDWPAPM_PATH . 'includes/helpers.php';
 
 // ============================
 // AJAX: Load Template Panel
@@ -30,7 +29,6 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
 
     ob_start();
 ?>
-
     <form id="ajdwp-template-products-form" method="post">
 
         <div class="tablenav top">
@@ -91,7 +89,6 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
 // ============================
 // Delete Product
 // ============================
-
 add_action('wp_ajax_ajdwp_delete_product_url', function () {
     check_ajax_referer('ajdwp_template_nonce');
     global $wpdb;
@@ -108,64 +105,62 @@ add_action('wp_ajax_ajdwp_update_price', function () {
     global $wpdb;
 
     $id = intval($_POST['id']);
-    $url = $wpdb->get_var($wpdb->prepare(
-        "SELECT product_url FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
+    if (!$id) {
+        wp_send_json_error(['message' => 'Missing ID']);
+    }
+
+    // ✅ Get URL + template info
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
         $id
     ));
-    if (!$url) wp_send_json_error(['message' => 'URL not found']);
+    if (!$row) {
+        wp_send_json_error(['message' => 'Product URL not found']);
+    }
 
-    $product_id = ajdwp_apm_get_existing_product_id($url);
-    if (!$product_id) wp_send_json_error(['message' => 'Product not found']);
+    $template_id = intval($row->template_id);
+    $product_url = $row->product_url;
+    $product_id  = ajdwp_apm_get_existing_product_id($product_url);
+    if (!$product_id) {
+        wp_send_json_error(['message' => 'Product not found']);
+    }
 
-    // 🟢 Get template ID and scraping method
-    $template_id = $wpdb->get_var($wpdb->prepare(
-        "SELECT template_id FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
-        $id
-    ));
-
-    $scrape_method = $wpdb->get_var($wpdb->prepare(
-        "SELECT scrape_method FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
-        $template_id
-    )) ?: 'auto';
-
-    // 🟢 Scrape just the price
-    $data = ajdwp_apm_scrape_product_data($url, [], [], $scrape_method);
+    // ✅ Scrape using template selectors
+    $data = ajdwp_get_scraped_data_by_template($template_id, $product_url, 'auto');
     if (!$data || empty($data['price'])) {
         wp_send_json_error(['message' => 'No price found']);
     }
 
-    // 🟢 Update WooCommerce sale price
-    update_post_meta($product_id, '_sale_price', $data['price']);
-    update_post_meta($product_id, '_price', $data['price']); // sync
+    $price = floatval(preg_replace('/[^\d.]/', '', $data['price']));
+    if ($price <= 0) {
+        wp_send_json_error(['message' => 'Invalid price']);
+    }
 
-    // 🟢 Make sure WC price is correctly saved before sending back
-    $confirmed_price = get_post_meta($product_id, '_sale_price', true);
+    // ✅ Update WooCommerce product
+    update_post_meta($product_id, '_price', $price);
+    update_post_meta($product_id, '_sale_price', $price);
 
+    // ✅ Update plugin table
     $wpdb->update(
         "{$wpdb->prefix}ajdwp_template_urls",
         [
-            'wc_product_id' => $product_id,
-            'price' => sanitize_text_field($data['price']),
+            'price' => $price,
             'last_scraped' => current_time('mysql'),
         ],
         ['id' => $id]
     );
 
-
     wp_send_json_success([
-        'price' => $data['price'],
-        'product_id' => $product_id,
+        'price' => number_format($price, 2, '.', ''),
+        'product_id' => $product_id
     ]);
 });
-
 
 // ========================
 // Full Update
 // ========================
-
 add_action('wp_ajax_ajdwp_full_update_product', function () {
     check_ajax_referer('ajdwp_template_nonce');
-
     global $wpdb;
 
     $id = intval($_POST['id']);
@@ -183,36 +178,21 @@ add_action('wp_ajax_ajdwp_full_update_product', function () {
         wp_send_json_error(['message' => 'Product not found']);
     }
 
-    $template_id = intval($row->template_id);
-    $template = $wpdb->get_row("SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = $template_id");
+    $template_id   = intval($row->template_id);
+    $product_url   = $row->product_url;
+    $product_id    = ajdwp_apm_get_existing_product_id($product_url);
 
-    if (!$template) {
-        error_log("❌ Template not found for ID: $template_id");
-        wp_send_json_error(['message' => 'Template not found']);
-    }
-
-    $scrape_method = $template->scrape_method ?? 'auto';
-
-    $selectors = [
-        'title_selector' => $template->title_selector ?? '',
-        'short_description_selector' => $template->short_description_selector ?? '',
-        'long_description_selector' => $template->long_description_selector ?? '',
-        'main_image_selector' => $template->main_image_selector ?? '',
-        'gallery_image_selectors' => $template->gallery_image_selectors ?? '',
-        'price_selector' => $template->price_selector ?? '',
-        'price_multiplier' => $template->price_multiplier ?? '',
-    ];
-
-    $data = ajdwp_apm_scrape_product_data($row->product_url, $selectors, [], $scrape_method);
-    if (!$data || empty($data['title'])) {
-        error_log("❌ Scrape failed for URL: " . $row->product_url);
-        wp_send_json_error(['message' => 'Scrape failed']);
-    }
-
-    $product_id = ajdwp_apm_get_existing_product_id($row->product_url);
     if (!$product_id) {
-        error_log("❌ WooCommerce product not found for URL: " . $row->product_url);
+        error_log("❌ WooCommerce product not found for URL: $product_url");
         wp_send_json_error(['message' => 'Product not found']);
+    }
+
+    // ✅ Get selectors and scrape using them
+    $selectors = ajdwp_apm_get_template_selectors($template_id);
+    $data = ajdwp_apm_scrape_product_data($product_url, $selectors, [], 'auto');
+    if (!$data || empty($data['title'])) {
+        error_log("❌ Scrape failed for URL: $product_url");
+        wp_send_json_error(['message' => 'Scrape failed']);
     }
 
     $product = wc_get_product($product_id);
@@ -230,7 +210,6 @@ add_action('wp_ajax_ajdwp_full_update_product', function () {
     $product->set_status('publish');
     $product->save();
 
-    // image handlers
     require_once ABSPATH . 'wp-admin/includes/image.php';
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
@@ -247,7 +226,6 @@ add_action('wp_ajax_ajdwp_full_update_product', function () {
     $gallery_urls = $data['gallery'] ?? [];
     if (!empty($gallery_urls) && is_array($gallery_urls)) {
         $gallery_ids = [];
-
         foreach ($gallery_urls as $url) {
             $gallery_id = ajdwp_apm_sideload_image($url, $product_id);
             if ($gallery_id) {
@@ -261,27 +239,26 @@ add_action('wp_ajax_ajdwp_full_update_product', function () {
         }
     }
 
-
-    // Update URL record
     $wpdb->update(
         "{$wpdb->prefix}ajdwp_template_urls",
         [
-            'title' => sanitize_text_field($data['title']),
-            'price' => sanitize_text_field($data['price']),
-            'image' => esc_url_raw($data['image'] ?? ''),
-            'last_scraped' => current_time('mysql'),
+            'title'         => sanitize_text_field($data['title']),
+            'price'         => sanitize_text_field($data['price']),
+            'image'         => esc_url_raw($data['image'] ?? ''),
+            'last_scraped'  => current_time('mysql'),
             'wc_product_id' => $product_id,
         ],
         ['id' => $id]
     );
 
     wp_send_json_success([
-        'message' => 'Product fully updated',
-        'price' => $data['price'],
-        'title' => $data['title'],
+        'message'   => 'Product fully updated',
+        'price'     => $data['price'],
+        'title'     => $data['title'],
         'edit_link' => get_edit_post_link($product_id),
     ]);
 });
+
 
 // ============================
 // AJAX: Bulk Product Actions

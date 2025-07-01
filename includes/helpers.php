@@ -1,5 +1,4 @@
 <?php
-
 //_____________________________________ helpers.php _____________________________________//
 
 // ============================
@@ -86,13 +85,13 @@ function ajdwp_apm_get_template_selectors($template_id)
     if (!$template) return [];
 
     return [
-        'title_selector'             => $template->title_selector             ?? '',
-        'short_description_selector' => $template->short_description_selector ?? '',
-        'long_description_selector'  => $template->long_description_selector  ?? '',
-        'main_image_selector'        => $template->main_image_selector        ?? '',
-        'gallery_image_selectors'    => $template->gallery_image_selectors    ?? '',
-        'price_selector'             => $template->price_selector             ?? '',
-        'price_multiplier'           => $template->price_multiplier           ?? '',
+        'title'             => $template->title_selector ?? '',
+        'short_description' => $template->short_description_selector ?? '',
+        'long_description'  => $template->long_description_selector ?? '',
+        'image'             => $template->main_image_selector ?? '',
+        'gallery'           => $template->gallery_image_selectors ?? '',
+        'price'             => $template->price_selector ?? '',
+        'price_calc'        => $template->price_multiplier ?? '',
     ];
 }
 
@@ -109,6 +108,11 @@ function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_
 {
     $selectors = ajdwp_apm_get_template_selectors($template_id);
     if (empty($selectors)) return false;
+
+
+    error_log("🧪 Template ID: $template_id");
+    error_log("🧪 Title selector: " . ($selectors['title_selector'] ?? '—'));
+    error_log("🧪 Price selector: " . ($selectors['price_selector'] ?? '—'));
 
     return ajdwp_apm_scrape_product_data($product_url, $selectors, [], $scrape_method);
 }
