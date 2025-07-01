@@ -54,7 +54,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
     // Enqueue Tab 2 - Template Manager JS
     wp_enqueue_script(
         'tab2-template-manager',
-        AJDWPAPM_URL . 'assets/js/tab2-template-manager.js',
+        AJDWPAPM_URL . 'assets/js/tab2-product-manager.js',
         ['jquery'],
         null,
         true
@@ -132,7 +132,7 @@ function ajdwp_apm_init_plugin()
     require_once AJDWPAPM_PATH . 'includes/scraper.php';
     require_once AJDWPAPM_PATH . 'includes/product-creator.php';
     require_once AJDWPAPM_PATH . 'admin/tab1-product-scrape-form-ajax.php';
-    require_once AJDWPAPM_PATH . 'admin/tab2-templates-manager-ajax.php';
+    require_once AJDWPAPM_PATH . 'admin/tab2-product-manager-ajax.php';
     require_once AJDWPAPM_PATH . 'admin/tab3-add-new-template-ajax.php';
 }
 
