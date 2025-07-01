@@ -68,9 +68,9 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                     <th scope="col" class="sortable" data-sort="last_scraped">Date</th>
                     <th scope="col">Actions</th>
                 </tr>
-                <!-- //---------------------------- Table body will be made by js ----------------------------// -->
             </thead>
 
+            <!-- //---------------------------- Table body will be made by js ----------------------------// -->
             <tbody id="ajdwp-products-tbody">
 
             </tbody>
@@ -450,70 +450,68 @@ function ajdwp_handle_bulk_price_multiplier()
 }
 
 // ===========================
-// AJAX: Search & Sort Template Products
+// AJAX: Search, Sort, Paginate Products
 // ===========================
-
-add_action('wp_ajax_ajdwp_search_and_sort_template_products', function () {
+add_action('wp_ajax_ajdwp_table_list_products', function () {
     if (! check_ajax_referer('ajdwp_template_nonce', 'security', false)) {
         wp_send_json_error(['message' => 'Security failed']);
     }
     global $wpdb;
 
-    // 1) Inputs
+    // Inputs
     $template_id = intval($_POST['template_id'] ?? 0);
     $query       = sanitize_text_field($_POST['query'] ?? '');
     $sort_field  = sanitize_key($_POST['sort_field'] ?? 'id');
     $sort_order  = strtoupper($_POST['sort_order'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
     $page        = max(1, intval($_POST['page'] ?? 1));
+    $per_page    = 5; // or 20
 
-    // 2) Paging
-    $per_page = 10; // ← change to 20 if you wish
-    $offset   = ($page - 1) * $per_page;
-
-    // 3) Sortable columns map
+    // Columns map (update as needed)
     $map = [
         'id'            => 'url.id',
         'wc_product_id' => 'url.wc_product_id',
-        'wc_price'      => 'url.price',
+        'wc_price'      => 'CAST(pm_price.meta_value AS DECIMAL(20,2))',
+        'wc_title'      => 'p.post_title',
         'last_scraped'  => 'url.last_scraped',
     ];
     $order_by = $map[$sort_field] ?? 'url.id';
 
-    // 4) Build WHERE clause
+    // Always join posts (p) and postmeta (pm_price) for full sorting support
+    $join = "
+        LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
+        LEFT JOIN {$wpdb->prefix}postmeta pm_price ON pm_price.post_id = url.wc_product_id AND pm_price.meta_key = '_price'
+    ";
+
+    // WHERE
     $where = $wpdb->prepare('url.template_id = %d', $template_id);
     if ($query !== '') {
         $like = '%' . $wpdb->esc_like($query) . '%';
-        $where .= $wpdb->prepare("
-        AND (
+        $where .= $wpdb->prepare(" AND (
           url.product_url LIKE %s
-          OR EXISTS(
-            SELECT 1 FROM {$wpdb->prefix}posts p
-             WHERE p.ID = url.wc_product_id
-               AND p.post_title LIKE %s
-          )
-        )
-      ", $like, $like);
+          OR p.post_title LIKE %s
+        )", $like, $like);
     }
 
-    // 5) Count total matches
+    // Total count (use same join/where)
     $total = intval($wpdb->get_var("
       SELECT COUNT(*) 
       FROM {$wpdb->prefix}ajdwp_template_urls url
-      LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
+      $join
       WHERE $where
     "));
 
-    // 6) Fetch only this page
+    // Fetch page
+    $offset = ($page - 1) * $per_page;
     $rows = $wpdb->get_results("
-      SELECT url.* 
+      SELECT url.*, p.post_title, pm_price.meta_value as wc_current_price
       FROM {$wpdb->prefix}ajdwp_template_urls url
-      LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
+      $join
       WHERE $where
       ORDER BY $order_by $sort_order
       LIMIT $offset, $per_page
     ");
 
-    // 7) Render <tr> for these rows
+    // Render rows
     ob_start();
     foreach ($rows as $url) {
         $cid     = $url->id;
@@ -521,7 +519,8 @@ add_action('wp_ajax_ajdwp_search_and_sort_template_products', function () {
         $wid     = ajdwp_apm_get_existing_product_id($pu);
         $wpobj   = $wid ? wc_get_product($wid) : null;
         $title   = $wpobj ? $wpobj->get_name() : '';
-        $price   = $wpobj ? floatval($wpobj->get_price()) : '';
+        // Use live WC price if available
+        $price   = $wpobj ? floatval($wpobj->get_price()) : floatval($url->wc_current_price);
         $edit    = $wid ? get_edit_post_link($wid) : '';
         $img     = $wpobj && $wpobj->get_image_id()
             ? wp_get_attachment_image_url($wpobj->get_image_id(), 'thumbnail')
@@ -541,7 +540,7 @@ add_action('wp_ajax_ajdwp_search_and_sort_template_products', function () {
                     No image
                 <?php endif; ?>
             </td>
-            <td>
+            <td id="product-title-<?= esc_attr($wid) ?>" data-original-title="<?= esc_attr($title) ?>">
                 <?php if ($edit): ?>
                     <a href="<?= esc_url($edit) ?>" target="_blank"><?= esc_html($title) ?></a>
                 <?php else: ?>
@@ -549,7 +548,7 @@ add_action('wp_ajax_ajdwp_search_and_sort_template_products', function () {
                 <?php endif; ?>
             </td>
             <td><a href="<?= esc_url($pu) ?>" target="_blank"><?= esc_html($pu) ?></a></td>
-            <td>£<?= esc_html(number_format($price, 2)) ?></td>
+            <td id="product-price-<?= esc_attr($wid) ?>" data-original-price="<?= esc_attr($price) ?>">£<?= esc_html(number_format($price, 2)) ?></td>
             <td><?= esc_html($url->last_scraped) ?></td>
             <td>
                 <button type="button" class="button ajdwp-action-delete" data-id="<?= esc_attr($cid) ?>">🗑</button>
@@ -557,159 +556,11 @@ add_action('wp_ajax_ajdwp_search_and_sort_template_products', function () {
                 <button type="button" class="button ajdwp-action-full-update" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">♻</button>
             </td>
         </tr>
-    <?php
-    }
-    $html = ob_get_clean();
-
-    // 8) Build Prev / numbered / Next buttons
-    $total_pages = max(1, ceil($total / $per_page));
-    ob_start();
-    if ($page > 1) {
-        printf(
-            '<button type="button" class="button ajdwp-pagination-prev" data-page="%d">« Prev</button>',
-            $page - 1
-        );
-    }
-    for ($i = 1; $i <= $total_pages; $i++) {
-        printf(
-            '<button type="button" class="button ajdwp-pagination-btn %s" data-page="%d">%d</button>',
-            $i === $page ? 'active' : '',
-            $i,
-            $i
-        );
-    }
-    if ($page < $total_pages) {
-        printf(
-            '<button type="button" class="button ajdwp-pagination-next" data-page="%d">Next »</button>',
-            $page + 1
-        );
-    }
-    $pagination = ob_get_clean();
-
-    // 9) Send it all back
-    wp_send_json_success([
-        'html'         => $html,
-        'pagination'   => $pagination,
-        'total_pages'  => $total_pages,
-    ]);
-});
-
-
-// ===========================
-// Pagination controls for product table
-// ===========================
-add_action('wp_ajax_ajdwp_paginate_template_products', function () {
-    if (! check_ajax_referer('ajdwp_template_nonce', 'security', false)) {
-        wp_send_json_error(['message' => 'Security check failed']);
-    }
-    global $wpdb;
-
-    // 1) inputs
-    $tid       = intval($_POST['template_id'] ?? 0);
-    $query     = sanitize_text_field($_POST['query'] ?? '');
-    $sf        = sanitize_key($_POST['sort_field'] ?? 'id');
-    $so        = strtoupper($_POST['sort_order'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
-    $page      = max(1, intval($_POST['page'] ?? 1));
-
-    // 2) page size:
-    $per_page = 1; // ← bump to 20 if you like
-
-    // 3) map sort keys
-    $map = [
-        'id'            => 'url.id',
-        'wc_product_id' => 'url.wc_product_id',
-        'wc_price'      => 'url.price',
-        'last_scraped'  => 'url.last_scraped',
-    ];
-    $order_by = $map[$sf] ?? 'url.id';
-
-    // 4) build WHERE
-    $where = $wpdb->prepare('url.template_id = %d', $tid);
-    if ($query !== '') {
-        $like = '%' . $wpdb->esc_like($query) . '%';
-        $where .= $wpdb->prepare(
-            " AND (
-            url.product_url LIKE %s
-            OR EXISTS(
-                SELECT 1 FROM {$wpdb->prefix}posts p
-                WHERE p.ID = url.wc_product_id
-                  AND p.post_title LIKE %s
-            )
-         )",
-            $like,
-            $like
-        );
-    }
-
-    // 5) total count
-    $total = intval($wpdb->get_var("
-      SELECT COUNT(*) 
-      FROM {$wpdb->prefix}ajdwp_template_urls url
-      LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
-      WHERE $where
-    "));
-
-    // 6) slice fetch
-    $offset = ($page - 1) * $per_page;
-    $rows   = $wpdb->get_results("
-      SELECT url.* 
-      FROM {$wpdb->prefix}ajdwp_template_urls url
-      LEFT JOIN {$wpdb->prefix}posts p ON p.ID = url.wc_product_id
-      WHERE $where
-      ORDER BY $order_by $so
-      LIMIT $offset, $per_page
-    ");
-
-    // 7) render only this page’s <tr>s
-    ob_start();
-    foreach ($rows as $url) {
-        // — your existing enrichment logic here —
-        $cid     = $url->id;
-        $pu      = $url->product_url;
-        $wid     = ajdwp_apm_get_existing_product_id($pu);
-        $wp      = $wid ? wc_get_product($wid) : null;
-        $title   = $wp ? $wp->get_name() : '';
-        $price   = $wp ? floatval($wp->get_price()) : '';
-        $edit    = $wid ? get_edit_post_link($wid) : '';
-        $img     = $wp && $wp->get_image_id()
-            ? wp_get_attachment_image_url($wp->get_image_id(), 'thumbnail')
-            : ajdwp_apm_get_image_preview_from_url($pu);
-    ?>
-        <tr data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">
-            <th class="check-column">
-                <?php if ($wid): ?>
-                    <input type="checkbox" name="product_custom_ids[]" value="<?= esc_attr($cid) ?>">
-                <?php endif; ?>
-            </th>
-            <td><?= esc_html($wid ?: '—') ?></td>
-            <td>
-                <?php if ($img): ?>
-                    <img src="<?= esc_url($img) ?>" style="width:50px;height:auto;">
-                <?php else: ?>
-                    No image
-                <?php endif; ?>
-            </td>
-            <td>
-                <?php if ($edit): ?>
-                    <a href="<?= esc_url($edit) ?>" target="_blank"><?= esc_html($title) ?></a>
-                <?php else: ?>
-                    <?= esc_html($title) ?>
-                <?php endif; ?>
-            </td>
-            <td><a href="<?= esc_url($pu) ?>" target="_blank"><?= esc_html($pu) ?></a></td>
-            <td>£<?= esc_html(number_format($price, 2)) ?></td>
-            <td><?= esc_html($url->last_scraped) ?></td>
-            <td>
-                <button class="button ajdwp-action-delete" data-id="<?= esc_attr($cid) ?>">🗑</button>
-                <button class="button ajdwp-action-update-price" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">💰</button>
-                <button class="button ajdwp-action-full-update" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>">♻</button>
-            </td>
-        </tr>
 <?php
     }
     $html = ob_get_clean();
 
-    // 8) build Prev / 1 2 3 / Next buttons
+    // Pagination
     $total_pages = max(1, ceil($total / $per_page));
     ob_start();
     if ($page > 1) {
@@ -728,7 +579,6 @@ add_action('wp_ajax_ajdwp_paginate_template_products', function () {
     }
     $pagination = ob_get_clean();
 
-    // 9) return both
     wp_send_json_success([
         'html'         => $html,
         'pagination'   => $pagination,
