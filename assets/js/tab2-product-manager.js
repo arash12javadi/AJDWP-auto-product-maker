@@ -178,7 +178,61 @@ jQuery(function ($) {
       return;
     }
 
-    // ✅ Start AJAX bulk handler
+    // ✅ Custom modal for delete_all
+    if (action === "delete_all") {
+      const productList = $("#ajdwp-delete-product-list");
+      productList.empty();
+
+      ids.forEach((customId) => {
+        const row = $(`tr[data-id='${customId}']`);
+        const title = row.find(".editable-title").text().trim();
+        const pid = row.data("product-id") || "—";
+        productList.append(`<li><strong>#${pid}</strong> – ${title}</li>`);
+      });
+
+      $("#ajdwp-delete-confirm-modal").fadeIn();
+
+      // Cancel: close modal and do nothing
+      $("#ajdwp-delete-cancel")
+        .off("click")
+        .on("click", function () {
+          $("#ajdwp-delete-confirm-modal").fadeOut();
+        });
+
+      // Confirm: send AJAX and delete
+      $("#ajdwp-delete-confirm")
+        .off("click")
+        .on("click", function () {
+          $("#ajdwp-delete-confirm-modal").fadeOut();
+
+          $.post(
+            AJDWP_tab2.ajax_url,
+            {
+              action: "ajdwp_bulk_product_action",
+              _ajax_nonce: AJDWP_tab2.nonce,
+              sub_action: "delete_all",
+              ids: ids,
+            },
+            function (res) {
+              if (res.success) {
+                ids.forEach((customId) => {
+                  const row = $(`tr[data-id='${customId}']`);
+                  row.fadeOut(300, function () {
+                    $(this).remove();
+                  });
+                });
+              } else {
+                alert("❌ Bulk delete failed.");
+                console.log(res);
+              }
+            }
+          );
+        });
+
+      return; // 🛑 Don't continue below
+    }
+
+    // ✅ For all other actions (update_price_all, full_update_all)
     $.post(
       AJDWP_tab2.ajax_url,
       {
@@ -192,15 +246,8 @@ jQuery(function ($) {
           ids.forEach((customId) => {
             const row = $(`tr[data-id='${customId}']`);
             const wcProductId = row.data("product-id") || row.find("td:nth-child(2)").text().trim();
-
             const priceCell = $(`#product-price-${wcProductId}`);
             const titleCell = $(`#product-title-${wcProductId}`);
-
-            if (action === "delete_all") {
-              row.fadeOut(300, function () {
-                $(this).remove();
-              });
-            }
 
             if (action === "update_price_all") {
               priceCell.html("<em>Updating...</em>");
@@ -248,8 +295,6 @@ jQuery(function ($) {
                 function (res2) {
                   if (res2.success) {
                     const { price: newPrice, title: newTitle, edit_link: editLink } = res2.data;
-
-                    // 🔁 Price
                     const originalPriceAttr = priceCell.data("original-price");
                     const oldPrice = parseFloat(originalPriceAttr) || 0;
 
@@ -261,15 +306,12 @@ jQuery(function ($) {
                       priceCell.html(`<span style="color: gray;">£${parseFloat(newPrice).toFixed(2)}</span>`);
                     }
 
-                    // 🔁 Title
                     const oldTitle = titleCell.data("original-title") || "";
-
                     const titleHtml = editLink
                       ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
                       : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
-                    // Decode entities for accurate comparison
-                    const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();
 
+                    const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();
                     if (decode(oldTitle) !== decode(newTitle)) {
                       titleCell.html(`
                       <span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span>
@@ -278,7 +320,6 @@ jQuery(function ($) {
                       titleCell.html(titleHtml);
                     }
 
-                    // ✅ Update data attributes
                     priceCell.attr("data-original-price", newPrice);
                     titleCell.attr("data-original-title", newTitle);
                   } else {

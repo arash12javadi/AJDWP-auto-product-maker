@@ -48,3 +48,10 @@ th.sortable.desc::after {
   opacity: 1;
   color: #0073aa;
 }
+
+#ajdwp-delete-confirm-modal {
+  display: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

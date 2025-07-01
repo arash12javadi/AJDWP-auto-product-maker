@@ -54,3 +54,21 @@ $templates = $wpdb->get_results("
         </div>
     </form>
 </div>
+
+<!-- 
+//==========================
+//  Delete products bulk popup
+//========================== 
+-->
+<div id="ajdwp-delete-confirm-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1000;">
+    <div id="ajdwp-delete-modal-content" style="margin:auto; background:#fff; padding:20px; max-width:600px; width:90%; border-radius:8px; box-shadow:0 5px 15px rgba(0,0,0,0.3);">
+        <h3 style="margin-top:0;">🗑 Confirm Bulk Deletion</h3>
+        <p>The following products will be deleted:</p>
+        <ul id="ajdwp-delete-product-list" style="max-height:300px; overflow-y:auto; padding-left:20px; margin:10px 0;"></ul>
+        <p style="color:#b00;"><strong>Are you sure?</strong> This action cannot be undone.</p>
+        <div style="text-align:right; margin-top:20px;">
+            <button id="ajdwp-delete-cancel" class="button">Cancel</button>
+            <button id="ajdwp-delete-confirm" class="button button-primary" style="margin-left:10px;">Yes, Delete</button>
+        </div>
+    </div>
+</div>
