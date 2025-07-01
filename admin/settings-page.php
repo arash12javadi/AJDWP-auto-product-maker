@@ -19,11 +19,11 @@ require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
     </div>
 
     <div id="tab-manager" class="ajdwp-tab-content" style="display: none;">
-        <?php include AJDWPAPM_PATH . 'templates/tab2-templates-manager.php'; ?>
+        <?php include AJDWPAPM_PATH . 'templates/tab2-product-manager.php'; ?>
     </div>
 
     <div id="tab-add" class="ajdwp-tab-content" style="display: none;">
-        <?php include AJDWPAPM_PATH . 'templates/tab3-add-new-template.php'; ?>
+        <?php include AJDWPAPM_PATH . 'templates/tab3-add-edit-template.php'; ?>
     </div>
 </div>
 

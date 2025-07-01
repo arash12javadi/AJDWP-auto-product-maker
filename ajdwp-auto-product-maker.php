@@ -64,7 +64,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
     // Enqueue Tab 3 - Add New Template JS
     wp_enqueue_script(
         'tab3-add-new-template',
-        AJDWPAPM_URL . 'assets/js/tab3-add-new-template.js',
+        AJDWPAPM_URL . 'assets/js/tab3-add-edit-template.js',
         ['jquery'],
         null,
         true
@@ -133,7 +133,7 @@ function ajdwp_apm_init_plugin()
     require_once AJDWPAPM_PATH . 'includes/product-creator.php';
     require_once AJDWPAPM_PATH . 'admin/tab1-product-scrape-form-ajax.php';
     require_once AJDWPAPM_PATH . 'admin/tab2-product-manager-ajax.php';
-    require_once AJDWPAPM_PATH . 'admin/tab3-add-new-template-ajax.php';
+    require_once AJDWPAPM_PATH . 'admin/tab3-add-edit-template-ajax.php';
 }
 
 // WooCommerce Required Notice
