@@ -65,7 +65,7 @@ function ajdwp_apm_get_image_preview_from_url($url)
 
 
 // ============================
-// 📄 Template Helpers
+// 📄 Template selectors & Helpers
 // ============================
 
 /**
@@ -109,10 +109,9 @@ function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_
     $selectors = ajdwp_apm_get_template_selectors($template_id);
     if (empty($selectors)) return false;
 
-
-    error_log("🧪 Template ID: $template_id");
-    error_log("🧪 Title selector: " . ($selectors['title_selector'] ?? '—'));
-    error_log("🧪 Price selector: " . ($selectors['price_selector'] ?? '—'));
+    // error_log("🧪 Template ID: $template_id");
+    // error_log("🧪 Title selector: " . ($selectors['title_selector'] ?? '—'));
+    // error_log("🧪 Price selector: " . ($selectors['price_selector'] ?? '—'));
 
     return ajdwp_apm_scrape_product_data($product_url, $selectors, [], $scrape_method);
 }
