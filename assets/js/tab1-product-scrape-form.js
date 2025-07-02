@@ -1,14 +1,17 @@
 //_____________________________________ tab1-product-scrape-form.js _____________________________________//
 
-// ============================
-// Scraped Results Preview
-// ============================
 jQuery(function ($) {
-  $("#ajdwp-scrape-form").on("click", "#preview-button", function (e) {
+  const $form = $("#ajdwp-scrape-form");
+  const $bulk = $("#ajdwp-add-products-in-bulk");
+  const $dropdown = $("#template-select-dropdown");
+
+  // ============================
+  // Preview Scraped Product
+  // ============================
+  $form.on("click", "#preview-button", function (e) {
     e.preventDefault();
 
-    const $form = $("#ajdwp-scrape-form");
-    const templateId = $("#template-select-dropdown").val();
+    const templateId = $dropdown.val();
     const productUrl = $form.find("input[name='product_url']").val();
     const scrapeMethod = $("#scrape_method").val();
 
@@ -17,7 +20,6 @@ jQuery(function ($) {
       return;
     }
 
-    // AJAX loading indicator
     $("#ajdwp-preview-container").html("⏳ Scraping preview...");
 
     $.post(
@@ -33,7 +35,7 @@ jQuery(function ($) {
         if (res.success) {
           $("#ajdwp-preview-container").html(res.data.html);
           $("table.form-table").hide();
-          $("#ajdwp-add-products-in-bulk").hide();
+          $bulk.hide();
           $("#preview-button").hide();
         } else {
           $("#ajdwp-preview-container").html(`<div class="notice notice-error">❌ ${res.data.message || "Failed to load preview."}</div>`);
@@ -44,43 +46,67 @@ jQuery(function ($) {
       $("#ajdwp-preview-container").html('<div class="notice notice-error">❌ AJAX request failed.</div>');
     });
   });
-  //--------------------------- cancel button ---------------------------//
+
+  // Cancel preview
   $("#ajdwp-preview-container").on("click", "#cancel-button", function (e) {
     e.preventDefault();
     location.reload();
   });
-});
 
-// ==================================
-// Load entered template values and Bulk Add Area
-// ==================================
-jQuery(function ($) {
-  const $dropdown = $("#template-select-dropdown");
-  const $bulk = $("#ajdwp-add-products-in-bulk");
+  // ============================
+  // Confirm and Save Scraped Product
+  // ============================
+  $("#ajdwp-preview-container").on("click", "#submit-button", function (e) {
+    e.preventDefault();
 
-  // 1) Hide bulk area by default
+    const templateId = $dropdown.val();
+    const productUrl = $form.find("input[name='product_url']").val();
+
+    if (!templateId || !productUrl) {
+      alert("Missing template or product URL.");
+      return;
+    }
+
+    $("#ajdwp-preview-container").html("⏳ Submitting product...");
+
+    $.post(
+      AJDWP_tab1.ajax_url,
+      {
+        action: "ajdwp_add_single_product_url",
+        _ajax_nonce: AJDWP_tab1.nonce,
+        template_id: templateId,
+        product_url: productUrl,
+      },
+      function (res) {
+        if (res.success) {
+          $("#ajdwp-preview-container").html(`<div class="notice notice-success">✅ ${res.data.message}: ${res.data.title}</div>`);
+          $(document).trigger("ajdwp-panel-loaded");
+        } else {
+          $("#ajdwp-preview-container").html(`<div class="notice notice-error">❌ ${res.data.message || "Failed to save product."}</div>`);
+        }
+      }
+    ).fail(function () {
+      $("#ajdwp-preview-container").html('<div class="notice notice-error">❌ AJAX request failed.</div>');
+    });
+  });
+
+  // ============================
+  // Load Template & Bulk Add UI
+  // ============================
   $bulk.hide();
-
-  // 2) Only render when user picks a template
   $dropdown.on("change", function () {
     renderBulkUI();
   });
 
-  // 3) No initial renderBulkUI() call here!
-
   function renderBulkUI() {
     const tpl = $dropdown.val();
-
     if (!tpl) {
-      // nothing selected → hide & clear
       $bulk.hide().empty();
       return;
     }
 
-    // show the container
     $bulk.show();
 
-    // fetch template data & populate selectors
     $.post(
       AJDWP_tab1.ajax_url,
       {
@@ -92,8 +118,8 @@ jQuery(function ($) {
         if (!res.success) {
           return $bulk.html('<div class="notice notice-error">Failed to load template settings.</div>');
         }
+
         const d = res.data;
-        // populate your individual selector inputs...
         $("#selector_title").val(d.title_selector);
         $("#selector_short_description").val(d.short_description_selector);
         $("#selector_long_description").val(d.long_description_selector);
@@ -115,13 +141,14 @@ jQuery(function ($) {
     });
   }
 
-  // 4) Delegate add/remove and submit as before
+  // ============================
+  // Sequential Bulk Add Handler
+  // ============================
   $bulk
     .on("click", "#add-bulk-url", function () {
       $("#bulk-add-urls").append(`
         <div class="bulk-url-row" style="margin-top:8px;">
-          <input type="url" name="bulk_product_urls[]"
-                 placeholder="Enter product URL" style="width:100%;max-width:800px;" required />
+          <input type="url" name="bulk_product_urls[]" placeholder="Enter product URL" style="width:100%;max-width:800px;" required />
           <button type="button" class="remove-bulk-url button-link-delete">Remove</button>
         </div>`);
     })
@@ -130,39 +157,63 @@ jQuery(function ($) {
     })
     .on("click", "#add-bulk-submit", function () {
       const tpl = $dropdown.val();
+      const $notice = $("#bulk-add-notice");
       const urls = $('input[name="bulk_product_urls[]"]')
-        .map((_, e) => e.value.trim())
+        .map((_, el) => el.value.trim())
         .get()
         .filter((u) => u);
 
-      if (!tpl || !urls.length) {
-        $("#bulk-add-notice").html(`<div class="notice notice-error">Please select a template and enter at least one URL.</div>`);
+      if (!tpl || urls.length === 0) {
+        $notice.html('<div class="notice notice-error">Please select a template and enter at least one URL.</div>');
         return;
       }
-      $.post(
-        AJDWP_tab1.ajax_url,
-        {
-          action: "ajdwp_bulk_add_product_urls",
-          _ajax_nonce: AJDWP_tab1.nonce,
-          template_id: tpl,
-          urls: urls,
-        },
-        function (res) {
-          if (!res.success) {
-            return $("#bulk-add-notice").html(`<div class="notice notice-error">❌ ${res.data.message || "Bulk add failed."}</div>`);
-          }
 
-          $("#bulk-add-notice").html(`
-            <div class="notice notice-success">
-              ✅ Inserted:   ${res.data.inserted} URL(s)<br>
-                Updated:    ${res.data.updated} URL(s)<br>
-                With errors:${res.data.errors} row(s)
-            </div>
-          `);
+      let index = 0;
+      let inserted = 0,
+        updated = 0,
+        errors = 0;
 
+      $notice.html(`<ul id="bulk-add-results" style="margin: 1em 0; list-style: square inside;"></ul>`);
+      const $results = $("#bulk-add-results");
+
+      function processNext() {
+        if (index >= urls.length) {
+          $results.append(`<li><strong>✅ All done:</strong> ${inserted} inserted, ${updated} updated, ${errors} errors.</li>`);
           $(document).trigger("ajdwp-panel-loaded");
-        },
-        "json"
-      );
+          return;
+        }
+
+        const url = urls[index++];
+        const statusItem = $(`<li>🔄 Processing: ${url}</li>`);
+        $results.append(statusItem);
+
+        $.post(
+          AJDWP_tab1.ajax_url,
+          {
+            action: "ajdwp_add_single_product_url",
+            _ajax_nonce: AJDWP_tab1.nonce,
+            template_id: tpl,
+            product_url: url,
+          },
+          function (res) {
+            if (res.success) {
+              const msg = res.data?.message || "✅ Added";
+              if (msg.includes("Inserted")) inserted++;
+              else updated++;
+              statusItem.html(`<span style="color:green;">${msg}</span> – ${res.data?.title || url}`);
+            } else {
+              errors++;
+              statusItem.html(`<span style="color:red;">❌ ${res.data?.message || "Failed"}</span> – ${url}`);
+            }
+            setTimeout(processNext, 250);
+          }
+        ).fail(function () {
+          errors++;
+          statusItem.html(`<span style="color:red;">❌ AJAX error</span> – ${url}`);
+          setTimeout(processNext, 250);
+        });
+      }
+
+      processNext();
     });
 });

@@ -201,3 +201,85 @@ add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {
         'errors'   => $errors,
     ]);
 });
+
+// ============================
+// AJAX: Add Single Product URL (Sequential)
+// ============================
+add_action('wp_ajax_ajdwp_add_single_product_url', function () {
+    check_ajax_referer('ajdwp_template_nonce');
+    global $wpdb;
+
+    $template_id = intval($_POST['template_id'] ?? 0);
+    $url = esc_url_raw(trim($_POST['product_url'] ?? ''));
+    $table = $wpdb->prefix . 'ajdwp_template_urls';
+
+    if (!$template_id || !$url) {
+        wp_send_json_error(['message' => 'Missing template or URL']);
+    }
+
+    $template = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
+        $template_id
+    ));
+    if (!$template) {
+        wp_send_json_error(['message' => 'Template not found']);
+    }
+
+    $selectors = ajdwp_apm_get_template_selectors($template_id);
+
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM $table WHERE template_id = %d AND product_url = %s",
+        $template_id,
+        $url
+    ));
+
+    $data = ajdwp_apm_scrape_product_data(
+        $url,
+        $selectors,
+        [],
+        $template->scrape_method ?? 'auto'
+    );
+
+    if (!$data || empty($data['title'])) {
+        wp_send_json_error(['message' => '❌ Scrape failed or no title']);
+    }
+
+    if ($row) {
+        $existing_id = intval($row->wc_product_id);
+        $prod_id = ajdwp_apm_create_product($data, $existing_id);
+        if (!$prod_id) {
+            wp_send_json_error(['message' => '❌ Failed to update product']);
+        }
+
+        $wpdb->update(
+            $table,
+            [
+                'wc_product_id' => $prod_id,
+                'title'         => sanitize_text_field($data['title']),
+                'price'         => sanitize_text_field($data['final_price'] ?? $data['price']),
+                'image'         => esc_url_raw($data['image'] ?? ''),
+                'last_scraped'  => current_time('mysql'),
+            ],
+            ['id' => $row->id]
+        );
+
+        wp_send_json_success(['message' => '🔄 Updated', 'title' => $data['title']]);
+    } else {
+        $wpdb->insert($table, [
+            'template_id'  => $template_id,
+            'product_url'  => $url,
+            'last_scraped' => current_time('mysql'),
+        ]);
+
+        $new_id = ajdwp_apm_create_product($data);
+        if ($new_id) {
+            $wpdb->update(
+                $table,
+                ['wc_product_id' => $new_id],
+                ['template_id' => $template_id, 'product_url' => $url]
+            );
+        }
+
+        wp_send_json_success(['message' => '✅ Inserted', 'title' => $data['title']]);
+    }
+});
