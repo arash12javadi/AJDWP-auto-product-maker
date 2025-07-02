@@ -163,6 +163,7 @@ jQuery(function ($) {
   // ==============================
   // Bulk Action - Full Update All
   // ==============================
+  // Bulk Action - Handle all (now with sequential processing)
   $(document).on("click", "#ajdwp-do-bulk-action", function () {
     const action = $("#ajdwp-bulk-action-top").val();
     const ids = $("input[name='product_custom_ids[]']:checked")
@@ -176,7 +177,7 @@ jQuery(function ($) {
       return;
     }
 
-    // ✅ Custom modal for delete_all
+    // Show confirmation modal for delete
     if (action === "delete_all") {
       const productList = $("#ajdwp-delete-product-list");
       productList.empty();
@@ -190,151 +191,128 @@ jQuery(function ($) {
 
       $("#ajdwp-delete-confirm-modal").fadeIn();
 
-      // Cancel: close modal and do nothing
       $("#ajdwp-delete-cancel")
         .off("click")
         .on("click", function () {
           $("#ajdwp-delete-confirm-modal").fadeOut();
         });
 
-      // Confirm: send AJAX and delete
       $("#ajdwp-delete-confirm")
         .off("click")
         .on("click", function () {
           $("#ajdwp-delete-confirm-modal").fadeOut();
-
-          $.post(
-            AJDWP_tab2.ajax_url,
-            {
-              action: "ajdwp_bulk_product_action",
-              _ajax_nonce: AJDWP_tab2.nonce,
-              sub_action: "delete_all",
-              ids: ids,
-            },
-            function (res) {
-              if (res.success) {
-                ids.forEach((customId) => {
-                  const row = $(`tr[data-id='${customId}']`);
-                  row.fadeOut(300, function () {
-                    $(this).remove();
-                  });
-                });
-              } else {
-                alert("❌ Bulk delete failed.");
-                console.log(res);
-              }
-            }
-          );
+          processBulkSequentially(ids, "delete_all");
         });
 
-      return; // 🛑 Don't continue below
+      return;
     }
 
-    // ✅ For all other actions (update_price_all, full_update_all)
+    // For update_price_all or full_update_all
+    processBulkSequentially(ids, action);
+  });
+
+  function processBulkSequentially(ids, action, index = 0) {
+    if (index >= ids.length) {
+      alert("✅ Bulk action completed.");
+      return;
+    }
+
+    const customId = ids[index];
+    const row = $(`tr[data-id='${customId}']`);
+    const wcProductId = row.data("product-id");
+    const priceCell = $(`#product-price-${wcProductId}`);
+    const titleCell = $(`#product-title-${wcProductId}`);
+
+    if (action === "update_price_all") {
+      priceCell.html("<em>Updating...</em>");
+    }
+
+    if (action === "full_update_all") {
+      priceCell.html("<em>Updating...</em>");
+      titleCell.html("<em>Updating...</em>");
+    }
+
+    if (action === "delete_all") {
+      $.post(
+        AJDWP_tab2.ajax_url,
+        {
+          action: "ajdwp_delete_product_url",
+          _ajax_nonce: AJDWP_tab2.nonce,
+          id: customId,
+        },
+        function (res) {
+          if (res.success) {
+            row.fadeOut(300, function () {
+              $(this).remove();
+            });
+          }
+          setTimeout(() => processBulkSequentially(ids, action, index + 1), 200);
+        }
+      );
+      return;
+    }
+
+    const ajaxAction = action === "update_price_all" ? "ajdwp_update_price" : "ajdwp_full_update_product";
+
     $.post(
       AJDWP_tab2.ajax_url,
       {
-        action: "ajdwp_bulk_product_action",
+        action: ajaxAction,
         _ajax_nonce: AJDWP_tab2.nonce,
-        sub_action: action,
-        ids: ids,
+        id: customId,
       },
       function (res) {
         if (res.success) {
-          ids.forEach((customId) => {
-            const row = $(`tr[data-id='${customId}']`);
-            const wcProductId = row.data("product-id") || row.find("td:nth-child(2)").text().trim();
-            const priceCell = $(`#product-price-${wcProductId}`);
-            const titleCell = $(`#product-title-${wcProductId}`);
+          if (action === "update_price_all" && res.data?.price) {
+            const newPrice = parseFloat(res.data.price).toFixed(2);
+            const oldPrice = parseFloat(priceCell.data("original-price")) || 0;
 
-            if (action === "update_price_all") {
-              priceCell.html("<em>Updating...</em>");
-              $.post(
-                AJDWP_tab2.ajax_url,
-                {
-                  action: "ajdwp_update_price",
-                  _ajax_nonce: AJDWP_tab2.nonce,
-                  id: customId,
-                },
-                function (res2) {
-                  if (res2.success && res2.data.product_id && res2.data.price) {
-                    const newPrice = parseFloat(res2.data.price).toFixed(2);
-                    const originalPriceAttr = priceCell.data("original-price");
-                    const oldPrice = parseFloat(originalPriceAttr) || 0;
+            const html =
+              newPrice == oldPrice.toFixed(2)
+                ? `<span style="color: gray;">£${newPrice}</span>`
+                : `<span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(
+                    2
+                  )}</span><span style="color: green; font-weight: bold;">£${newPrice}</span>`;
 
-                    let html = "";
-                    if (newPrice == oldPrice.toFixed(2)) {
-                      html = `<span style="color: gray;">${AJDWP_tab2.currency}${newPrice}</span>`;
-                    } else {
-                      html = `
-                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
-                      <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${newPrice}</span>`;
-                    }
-                    priceCell.html(html);
-                    priceCell.attr("data-original-price", newPrice);
-                  } else {
-                    priceCell.html(`<span style="color:red;">❌ Error</span>`);
-                  }
-                }
-              );
-            }
+            priceCell.html(html);
+            priceCell.attr("data-original-price", newPrice);
+          }
 
-            if (action === "full_update_all") {
-              priceCell.html("<em>Updating...</em>");
-              titleCell.html("<em>Updating...</em>");
+          if (action === "full_update_all" && res.data) {
+            const { price: newPrice, title: newTitle, edit_link: editLink } = res.data;
 
-              $.post(
-                AJDWP_tab2.ajax_url,
-                {
-                  action: "ajdwp_full_update_product",
-                  _ajax_nonce: AJDWP_tab2.nonce,
-                  id: customId,
-                },
-                function (res2) {
-                  if (res2.success) {
-                    const { price: newPrice, title: newTitle, edit_link: editLink } = res2.data;
-                    const originalPriceAttr = priceCell.data("original-price");
-                    const oldPrice = parseFloat(originalPriceAttr) || 0;
+            const oldPrice = parseFloat(priceCell.data("original-price")) || 0;
+            const priceHtml =
+              parseFloat(newPrice) !== oldPrice
+                ? `<span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(
+                    2
+                  )}</span><span style="color: green; font-weight: bold;">£${parseFloat(newPrice).toFixed(2)}</span>`
+                : `<span style="color: gray;">£${parseFloat(newPrice).toFixed(2)}</span>`;
 
-                    if (parseFloat(newPrice) !== oldPrice) {
-                      priceCell.html(`
-                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
-                      <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${parseFloat(newPrice).toFixed(2)}</span>`);
-                    } else {
-                      priceCell.html(`<span style="color: gray;">${AJDWP_tab2.currency}${parseFloat(newPrice).toFixed(2)}</span>`);
-                    }
+            const oldTitle = titleCell.data("original-title") || "";
+            const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();
 
-                    const oldTitle = titleCell.data("original-title") || "";
-                    const titleHtml = editLink
-                      ? `<a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
-                      : `<span style="color: green; font-weight: bold;">${newTitle}</span>`;
+            const titleHtml =
+              decode(oldTitle) !== decode(newTitle)
+                ? `<span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span><a href="${editLink}" target="_blank" style="color: green; font-weight: bold;">${newTitle}</a>`
+                : `<span style="color: gray;">${newTitle}</span>`;
 
-                    const decode = (str) => $("<textarea>").html(str).text().trim().toLowerCase();
-                    if (decode(oldTitle) !== decode(newTitle)) {
-                      titleCell.html(`
-                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">${oldTitle}</span>
-                      ${titleHtml}`);
-                    } else {
-                      titleCell.html(titleHtml);
-                    }
-
-                    priceCell.attr("data-original-price", newPrice);
-                    titleCell.attr("data-original-title", newTitle);
-                  } else {
-                    priceCell.html(`<span style="color:red;">❌</span>`);
-                    titleCell.html(`<span style="color:red;">❌</span>`);
-                  }
-                }
-              );
-            }
-          });
+            priceCell.html(priceHtml);
+            titleCell.html(titleHtml);
+            priceCell.attr("data-original-price", newPrice);
+            titleCell.attr("data-original-title", newTitle);
+          }
         } else {
-          alert("❌ Bulk action failed.");
-          console.log(res);
+          priceCell.html(`<span style="color:red;">❌</span>`);
+          if (action === "full_update_all") {
+            titleCell.html(`<span style="color:red;">❌</span>`);
+          }
         }
+
+        setTimeout(() => processBulkSequentially(ids, action, index + 1), 200);
       }
     );
-  });
+  }
 
   // ==============================
   // Bulk Action - Multiplier
