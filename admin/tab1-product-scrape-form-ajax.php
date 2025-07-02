@@ -28,6 +28,76 @@ function ajdwp_get_template_data_callback()
 }
 
 // ============================
+// Scraped Results Preview
+// ============================
+
+add_action('wp_ajax_ajdwp_preview_scrape', function () {
+    check_ajax_referer('ajdwp_template_nonce');
+
+    $url         = esc_url_raw(trim($_POST['product_url'] ?? ''));
+    $template_id = intval($_POST['template_id'] ?? 0);
+    $method      = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
+
+    if (!$template_id || empty($url)) {
+        wp_send_json_error(['message' => 'Missing template or URL.']);
+    }
+
+    // ✅ Use your built-in helper to get scraped data
+    $data = ajdwp_get_scraped_data_by_template($template_id, $url, $method);
+
+    if (!$data || empty($data['title'])) {
+        wp_send_json_error(['message' => 'Failed to scrape product.']);
+    }
+
+    // ✅ Prepare preview HTML
+    ob_start();
+?>
+    <h2>🔍 Scraped Preview</h2>
+    <h3>Title:</h3>
+    <p><?php echo esc_html($data['title']); ?></p>
+
+    <?php if (!empty($data['price_regular'])): ?>
+        <h3>Regular Price:</h3>
+        <p><?php echo esc_html($data['price_regular']); ?></p>
+    <?php endif; ?>
+
+    <?php if (!empty($data['price'])): ?>
+        <h3>Discounted Price:</h3>
+        <p><?php echo esc_html($data['price']); ?></p>
+    <?php endif; ?>
+
+    <h3>Short Description:</h3>
+    <p><?php echo esc_html($data['short_description'] ?? '⛔ Not found'); ?></p>
+    <h3>Long Description:</h3>
+    <p><?php echo wp_kses_post($data['long_description'] ?? '<em>⛔ Not found</em>'); ?></p>
+
+    <h3>Main Image:</h3>
+    <?php if (!empty($data['image'])): ?>
+        <img src="<?php echo esc_url($data['image']); ?>" style="max-width:300px;"><br>
+    <?php else: ?>
+        <p>⛔ Not found</p>
+    <?php endif; ?>
+
+    <h3>Gallery Images:</h3>
+    <?php if (!empty($data['gallery']) && is_array($data['gallery'])):
+        foreach ($data['gallery'] as $img_url): ?>
+            <img src="<?php echo esc_url($img_url); ?>" style="max-width:100px; margin-right: 5px;">
+        <?php endforeach;
+    else: ?>
+        <p>⛔ Not found</p>
+    <?php endif; ?>
+    <p>
+        <button type="submit" class="button button-Primary" id="submit-button">✅ Confirm and Add to Template</button>
+        <button type="button" class="button button-danger" id="cancel-button">❌ Cancel</button>
+    </p>
+<?php
+    $preview_html = ob_get_clean();
+
+    wp_send_json_success(['html' => $preview_html]);
+});
+
+
+// ============================
 // AJAX: Bulk Add or Update Product URLs
 // ============================
 add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {

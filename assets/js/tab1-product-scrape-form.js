@@ -1,5 +1,56 @@
 //_____________________________________ tab1-product-scrape-form.js _____________________________________//
 
+// ============================
+// Scraped Results Preview
+// ============================
+jQuery(function ($) {
+  $("#ajdwp-scrape-form").on("click", "#preview-button", function (e) {
+    e.preventDefault();
+
+    const $form = $("#ajdwp-scrape-form");
+    const templateId = $("#template-select-dropdown").val();
+    const productUrl = $form.find("input[name='product_url']").val();
+    const scrapeMethod = $("#scrape_method").val();
+
+    if (!templateId || !productUrl) {
+      $("#ajdwp-preview-container").html('<div class="notice notice-error">❌ Please select a template and enter a valid URL.</div>');
+      return;
+    }
+
+    // AJAX loading indicator
+    $("#ajdwp-preview-container").html("⏳ Scraping preview...");
+
+    $.post(
+      AJDWP_tab1.ajax_url,
+      {
+        action: "ajdwp_preview_scrape",
+        _ajax_nonce: AJDWP_tab1.nonce,
+        template_id: templateId,
+        product_url: productUrl,
+        scrape_method: scrapeMethod,
+      },
+      function (res) {
+        if (res.success) {
+          $("#ajdwp-preview-container").html(res.data.html);
+          $("table.form-table").hide();
+          $("#ajdwp-add-products-in-bulk").hide();
+          $("#preview-button").hide();
+        } else {
+          $("#ajdwp-preview-container").html(`<div class="notice notice-error">❌ ${res.data.message || "Failed to load preview."}</div>`);
+        }
+      },
+      "json"
+    ).fail(function () {
+      $("#ajdwp-preview-container").html('<div class="notice notice-error">❌ AJAX request failed.</div>');
+    });
+  });
+  //--------------------------- cancel button ---------------------------//
+  $("#ajdwp-preview-container").on("click", "#cancel-button", function (e) {
+    e.preventDefault();
+    location.reload();
+  });
+});
+
 // ==================================
 // Load entered template values and Bulk Add Area
 // ==================================
