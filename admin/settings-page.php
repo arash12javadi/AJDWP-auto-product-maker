@@ -2,7 +2,6 @@
 // ====================== settings-page.php ====================== //
 // Load scraper functions
 require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
-
 ?>
 
 <div class="wrap">
@@ -12,6 +11,7 @@ require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
         <a href="#tab-scraper" class="nav-tab nav-tab-active">🌐 Scraping Products</a>
         <a href="#tab-manager" class="nav-tab">🗂️ Product Manager</a>
         <a href="#tab-add" class="nav-tab">➕ Add/Edit Template</a>
+        <a href="#tab-ai" class="nav-tab">⚛ AI Settings</a>
     </h2>
 
     <div id="tab-scraper" class="ajdwp-tab-content" style="display: block;">
@@ -24,6 +24,10 @@ require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
 
     <div id="tab-add" class="ajdwp-tab-content" style="display: none;">
         <?php include AJDWPAPM_PATH . 'templates/tab3-add-edit-template.php'; ?>
+    </div>
+
+    <div id="tab-ai" class="ajdwp-tab-content" style="display: none;">
+        <?php include AJDWPAPM_PATH . 'templates/tab4-ai-settings.php'; ?>
     </div>
 </div>
 

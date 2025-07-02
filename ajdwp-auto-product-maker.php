@@ -136,6 +136,7 @@ function ajdwp_apm_init_plugin()
     require_once AJDWPAPM_PATH . 'admin/tab1-product-scrape-form-ajax.php';
     require_once AJDWPAPM_PATH . 'admin/tab2-product-manager-ajax.php';
     require_once AJDWPAPM_PATH . 'admin/tab3-add-edit-template-ajax.php';
+    require_once AJDWPAPM_PATH . 'admin/tab4-ai-settings-init.php';
 }
 
 // WooCommerce Required Notice

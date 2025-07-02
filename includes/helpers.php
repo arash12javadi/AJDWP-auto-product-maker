@@ -1,5 +1,6 @@
 <?php
 //_____________________________________ helpers.php _____________________________________//
+if (!defined('ABSPATH')) exit;
 
 // ============================
 // 🔍 Product Existence & Lookup
@@ -114,4 +115,37 @@ function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_
     // error_log("🧪 Price selector: " . ($selectors['price_selector'] ?? '—'));
 
     return ajdwp_apm_scrape_product_data($product_url, $selectors, [], $scrape_method);
+}
+
+
+//==========================
+//  ai-helper
+//==========================
+
+function ajdwp_refine_with_ai($prompt)
+{
+    $api_key = get_option('ajdwp_openai_api_key');
+    if (!$api_key) return false;
+
+    $response = wp_remote_post('https://api.openai.com/v1/chat/completions', [
+        'headers' => [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type'  => 'application/json',
+        ],
+        'body' => json_encode([
+            'model'    => 'gpt-4',
+            'messages' => [
+                ['role' => 'system', 'content' => 'You are an expert copywriter and SEO specialist.'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'temperature' => 0.7,
+            'max_tokens'  => 500,
+        ]),
+        'timeout' => 60,
+    ]);
+
+    if (is_wp_error($response)) return false;
+
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    return $body['choices'][0]['message']['content'] ?? false;
 }
