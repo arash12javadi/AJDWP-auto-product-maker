@@ -57,27 +57,6 @@ jQuery(function ($) {
         $("#skip_image").prop("checked", !d.main_image_selector);
         $("#skip_gallery").prop("checked", !d.gallery_image_selectors);
         $("#skip_price").prop("checked", !d.price_selector);
-
-        // inject bulk-add HTML
-        $bulk.html(`
-        <h2>Bulk Add Products</h2>
-        <div id="bulk-add-urls">
-          <div class="bulk-url-row">
-            <input type="url"
-                   name="bulk_product_urls[]"
-                   placeholder="Enter product URL"
-                   style="width:80%;"
-                   required />
-          </div>
-        </div>
-        <p>
-          <button type="button" id="add-bulk-url" class="button">+ Add another URL</button>
-          <button type="button" id="add-bulk-submit" class="button button-secondary">
-            ✅ Bulk Add to Template
-          </button>
-        </p>
-        <div id="bulk-add-notice"></div>
-      `);
       },
       "json"
     ).fail(function () {
@@ -91,7 +70,7 @@ jQuery(function ($) {
       $("#bulk-add-urls").append(`
         <div class="bulk-url-row" style="margin-top:8px;">
           <input type="url" name="bulk_product_urls[]"
-                 placeholder="Enter product URL" style="width:80%;" required />
+                 placeholder="Enter product URL" style="width:100%;max-width:800px;" required />
           <button type="button" class="remove-bulk-url button-link-delete">Remove</button>
         </div>`);
     })

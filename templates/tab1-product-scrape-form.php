@@ -35,7 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
             }
         }
 
-
         // Collect selectors
         $selectors = [
             'title'             => sanitize_text_field($_POST['selector_title'] ?? ''),
@@ -192,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
 
         <tr>
             <th><label for="product_url">Page URL:</label></th>
-            <td><input type="url" name="product_url" required style="width: 100%;" /></td>
+            <td><input type="url" name="product_url" required style="width:100%;max-width:800px;" /></td>
         </tr>
 
         <?php
@@ -211,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
             <tr>
                 <th><label for="selector_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?>:</label></th>
                 <td>
-                    <input type="text" name="selector_<?php echo esc_attr($key); ?>" id="selector_<?php echo esc_attr($key); ?>" />
+                    <input type="text" style="width:100%;max-width:600px;" name="selector_<?php echo esc_attr($key); ?>" id="selector_<?php echo esc_attr($key); ?>" />
                     <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>" id="skip_<?php echo esc_attr($key); ?>"> Ignore if not found</label>
                 </td>
             </tr>
@@ -232,14 +231,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_url'])) {
                 <input type="url"
                     name="bulk_product_urls[]"
                     placeholder="Enter product URL"
-                    style="width:80%;"
-                    required />
+                    style="width:100%;max-width:800px;" />
             </div>
         </div>
         <p>
             <button type="button" id="add-bulk-url" class="button">
                 + Add another URL
             </button>
+        </p>
+        <p>
             <button type="button" id="add-bulk-submit" class="button button-secondary">
                 ✅ Bulk Add to Template
             </button>

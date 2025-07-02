@@ -34,11 +34,11 @@ add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {
     check_ajax_referer('ajdwp_template_nonce');
 
     global $wpdb;
-    $tpl_id   = intval($_POST['template_id'] ?? 0);
+    $template_id   = intval($_POST['template_id'] ?? 0);
     $raw_urls = $_POST['urls'] ?? [];
     $table    = $wpdb->prefix . 'ajdwp_template_urls';
 
-    if (!$tpl_id || !is_array($raw_urls)) {
+    if (!$template_id || !is_array($raw_urls)) {
         wp_send_json_error(['message' => 'Invalid input.']);
     }
 
@@ -49,17 +49,9 @@ add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {
     // load template once
     $template = $wpdb->get_row($wpdb->prepare(
         "SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
-        $tpl_id
+        $template_id
     ));
-    $selectors = [
-        'title_selector'             => $template->title_selector             ?? '',
-        'short_description_selector' => $template->short_description_selector ?? '',
-        'long_description_selector'  => $template->long_description_selector  ?? '',
-        'main_image_selector'        => $template->main_image_selector        ?? '',
-        'gallery_image_selectors'    => $template->gallery_image_selectors    ?? '',
-        'price_selector'             => $template->price_selector             ?? '',
-        'price_multiplier'           => $template->price_multiplier           ?? '',
-    ];
+    $selectors = ajdwp_apm_get_template_selectors($template_id);
 
     foreach ($raw_urls as $raw) {
         $raw = trim($raw);
@@ -73,7 +65,7 @@ add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {
         // check existing record
         $row = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM $table WHERE template_id = %d AND product_url = %s",
-            $tpl_id,
+            $template_id,
             $url
         ));
 
@@ -115,7 +107,7 @@ add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {
         } else {
             // —— INSERT new URL record & product —— //
             $wpdb->insert($table, [
-                'template_id'  => $tpl_id,
+                'template_id'  => $template_id,
                 'product_url'  => $url,
                 'last_scraped' => current_time('mysql'),
             ]);
@@ -127,7 +119,7 @@ add_action('wp_ajax_ajdwp_bulk_add_product_urls', function () {
                 $wpdb->update(
                     $table,
                     ['wc_product_id' => $new_id],
-                    ['template_id' => $tpl_id, 'product_url' => $url]
+                    ['template_id' => $template_id, 'product_url' => $url]
                 );
             }
         }
