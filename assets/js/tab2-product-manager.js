@@ -81,11 +81,11 @@ jQuery(function ($) {
 
           let html = "";
           if (newPrice == oldPrice.toFixed(2)) {
-            html = `<span style="color: gray;">£${newPrice}</span>`;
+            html = `<span style="color: gray;">${AJDWP_tab2.currency}${newPrice}</span>`;
           } else {
             html = `
-              <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
-              <span style="color: green; font-weight: bold;">£${newPrice}</span>`;
+              <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
+              <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${newPrice}</span>`;
           }
           priceCell.html(html);
         } else {
@@ -126,10 +126,10 @@ jQuery(function ($) {
 
           if (parseFloat(newPrice) !== oldPrice) {
             priceCell.html(`
-            <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
-            <span style="color: green; font-weight: bold;">£${parseFloat(newPrice).toFixed(2)}</span>`);
+            <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
+            <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${parseFloat(newPrice).toFixed(2)}</span>`);
           } else {
-            priceCell.html(`<span style="color: gray;">£${parseFloat(newPrice).toFixed(2)}</span>`);
+            priceCell.html(`<span style="color: gray;">${AJDWP_tab2.currency}${parseFloat(newPrice).toFixed(2)}</span>`);
           }
 
           // ✅ Title handling
@@ -264,11 +264,11 @@ jQuery(function ($) {
 
                     let html = "";
                     if (newPrice == oldPrice.toFixed(2)) {
-                      html = `<span style="color: gray;">£${newPrice}</span>`;
+                      html = `<span style="color: gray;">${AJDWP_tab2.currency}${newPrice}</span>`;
                     } else {
                       html = `
-                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
-                      <span style="color: green; font-weight: bold;">£${newPrice}</span>`;
+                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
+                      <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${newPrice}</span>`;
                     }
                     priceCell.html(html);
                     priceCell.attr("data-original-price", newPrice);
@@ -298,10 +298,10 @@ jQuery(function ($) {
 
                     if (parseFloat(newPrice) !== oldPrice) {
                       priceCell.html(`
-                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
-                      <span style="color: green; font-weight: bold;">£${parseFloat(newPrice).toFixed(2)}</span>`);
+                      <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
+                      <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${parseFloat(newPrice).toFixed(2)}</span>`);
                     } else {
-                      priceCell.html(`<span style="color: gray;">£${parseFloat(newPrice).toFixed(2)}</span>`);
+                      priceCell.html(`<span style="color: gray;">${AJDWP_tab2.currency}${parseFloat(newPrice).toFixed(2)}</span>`);
                     }
 
                     const oldTitle = titleCell.data("original-title") || "";
@@ -379,16 +379,16 @@ jQuery(function ($) {
             const priceCell = $(`#product-price-${productId}`);
 
             // Extract old price from original cell content, if available
-            const oldText = priceCell.text().replace("£", "").trim();
+            const oldText = priceCell.text().replace(AJDWP_tab2.currency, "").trim();
             const oldPrice = parseFloat(oldText) || 0;
 
             let html = "";
             if (newPrice == oldPrice.toFixed(2)) {
-              html = `<span style="color: gray;">£${newPrice}</span>`;
+              html = `<span style="color: gray;">${AJDWP_tab2.currency}${newPrice}</span>`;
             } else {
               html = `
-              <span style="color: red; text-decoration: line-through; margin-right: 5px;">£${oldPrice.toFixed(2)}</span>
-              <span style="color: green; font-weight: bold;">£${newPrice}</span>`;
+              <span style="color: red; text-decoration: line-through; margin-right: 5px;">${AJDWP_tab2.currency}${oldPrice.toFixed(2)}</span>
+              <span style="color: green; font-weight: bold;">${AJDWP_tab2.currency}${newPrice}</span>`;
             }
 
             priceCell.html(html);
@@ -529,7 +529,7 @@ jQuery(function ($) {
   $(document).on("click", ".editable-price", function () {
     const cid = $(this).data("id");
     const wid = $(this).data("product-id");
-    const price = $(this).data("original-price") || $(this).text().replace("£", "").trim();
+    const price = $(this).data("original-price") || $(this).text().replace(AJDWP_tab2.currency, "").trim();
 
     $("#ajdwp-edit-popup-title").text("Edit Product Price");
     $("#ajdwp-edit-popup-type").val("price");
@@ -577,7 +577,7 @@ jQuery(function ($) {
             $(`#product-title-${wid}`).text(value);
             $(`#product-title-${wid}`).data("original-title", value);
           } else if (type === "price") {
-            $(`#product-price-${wid}`).text("£" + parseFloat(value).toFixed(2));
+            $(`#product-price-${wid}`).text(AJDWP_tab2.currency + parseFloat(value).toFixed(2));
             $(`#product-price-${wid}`).data("original-price", parseFloat(value).toFixed(2));
           }
         } else {

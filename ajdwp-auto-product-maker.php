@@ -1,4 +1,5 @@
 <?php
+//_____________________________________ ajdwp-auto-product-maker.php _____________________________________//
 /*
 Plugin Name: AJDWP Auto Product Maker
 Description: Automatically scrapes given URLs and creates WooCommerce products with custom selectors.
@@ -49,6 +50,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
     $ajax_vars = [
         'ajax_url' => admin_url('admin-ajax.php'),
         'nonce'    => wp_create_nonce('ajdwp_template_nonce'),
+        'currency'  => get_woocommerce_currency_symbol(),
     ];
 
     // Enqueue Tab 2 - Template Manager JS

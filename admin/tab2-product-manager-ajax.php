@@ -531,7 +531,7 @@ add_action('wp_ajax_ajdwp_table_list_products', function () {
             </td>
             <td><a href="<?= esc_url($pu) ?>" target="_blank"><?= esc_html($pu) ?></a></td>
             <td id="product-price-<?= esc_attr($wid) ?>" class="editable-price" data-id="<?= esc_attr($cid) ?>" data-product-id="<?= esc_attr($wid) ?>" data-original-price="<?= esc_attr($price) ?>">
-                £<?= esc_html(number_format($price, 2)) ?>
+                <?= esc_html(get_woocommerce_currency_symbol()) ?><?= esc_html(number_format($price, 2)) ?>
             </td>
             <td><?= esc_html($url->last_scraped) ?></td>
             <td>
