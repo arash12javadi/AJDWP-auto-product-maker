@@ -5,7 +5,9 @@ defined('ABSPATH') || exit;
 // ===========================
 
 ?>
-<h2>➕ Add New Template</h2>
+<strong>📝 Add New Template</strong>
+<br>
+<br>
 <div id="ajdwp-add-template">
     <input type="text" id="new-template-name" placeholder="Enter template name..." style="min-width: 250px;" />
     <br><br>
@@ -15,29 +17,36 @@ defined('ABSPATH') || exit;
         <option value="dynamic">Dynamic (JS-rendered sites)</option>
     </select>
     <br><br>
-    <input type="text" name="title_selector" placeholder="Title Selector">
+    <select name="ai_mode">
+        <option value="ai-all">AI Refine All Elements</option>
+        <option value="ai-title">AI Refine Title</option>
+        <option value="ai-short-descriotion">AI Refine Short Description</option>
+        <option value="ai-long-descriotion">AI Refine Long Description</option>
+    </select>
+    <br><br>
+    <input style="width:100%;max-width:800px;" type="text" name="title_selector" placeholder="Title Selector">
     <span id="title_selector" class="temp-default-exp">meta[property="og:title"]</span><br><br>
 
-    <input type="text" name="short_description_selector" placeholder="Short Description Selector">
+    <input style="width:100%;max-width:800px;" type="text" name="short_description_selector" placeholder="Short Description Selector">
     <span id="short_description_selector" class="temp-default-exp">meta[name="description"], meta[property="og:description"]</span><br><br>
 
-    <input type="text" name="long_description_selector" placeholder="Long Description Selector">
+    <input style="width:100%;max-width:800px;" type="text" name="long_description_selector" placeholder="Long Description Selector">
     <span id="long_description_selector" class="temp-default-exp">div.woocommerce-Tabs-panel--description, div.product-description, div#tab-description</span><br><br>
 
-    <input type="text" name="main_image_selector" placeholder="Main Image Selector">
+    <input style="width:100%;max-width:800px;" type="text" name="main_image_selector" placeholder="Main Image Selector">
     <span id="main_image_selector" class="temp-default-exp">img.wp-post-image, .woocommerce-product-gallery__image img</span><br><br>
 
-    <input type="text" name="gallery_image_selectors" placeholder="Gallery Image Selectors (comma-separated)">
+    <input style="width:100%;max-width:800px;" type="text" name="gallery_image_selectors" placeholder="Gallery Image Selectors (comma-separated)">
     <span id="gallery_image_selectors" class="temp-default-exp">div.woocommerce-product-gallery__wrapper img</span><br><br>
 
-    <input type="text" name="price_selector" placeholder="Price Selector">
+    <input style="width:100%;max-width:800px;" type="text" name="price_selector" placeholder="Price Selector">
     <span id="price_selector" class="temp-default-exp">div.summary.entry-summary p ins span bdi, span.woocommerce-Price-amount bdi</span><br><br>
 
     <input type="text" name="price_multiplier" placeholder="Price Multiplier (e.g. x1.2 or +5)">
     <br><br>
-    <button id="add-template-btn" class="button button-primary">Add Template</button>
+    <button id="add-template-btn" class="button button-primary">💾 Add Template</button>
 </div>
-
+<br>
 <p>⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘⫘</p>
 
 <!-- ===========================
@@ -46,7 +55,7 @@ defined('ABSPATH') || exit;
 
 <div style="margin-bottom: 20px;">
     <label for="tab3-template_id">
-        <h2>🧩 Select a Template:</h2>
+        <strong>🧩 Select a Template:</strong>
     </label>
     <select name="tab3-template_id" id="tab3_template_id" style="min-width: 250px;">
         <option value="">-- Choose Template --</option>

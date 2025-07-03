@@ -44,36 +44,42 @@ function ajdwp_apm_render_settings_page()
 // Admin Scripts & Localisation
 // ============================
 add_action('admin_enqueue_scripts', function ($hook) {
-    if (strpos($hook, 'ajdwp-auto-product-maker') === false) return;
 
-    // Shared AJAX data
+    // ✅ Only load on plugin page
+    if (!isset($_GET['page']) || $_GET['page'] !== 'ajdwp-auto-product-maker') {
+        return;
+    }
+
+    // ============================
+    // Bootstrap CSS & JS
+    // ============================
+    wp_enqueue_style(
+        'ajdwp-bootstrap-css',
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
+        [],
+        '5.3.3'
+    );
+
+    wp_enqueue_script(
+        'ajdwp-bootstrap-js',
+        'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js',
+        ['jquery'],
+        '5.3.3',
+        true
+    );
+
+    // ============================
+    // Localised AJAX data
+    // ============================
     $ajax_vars = [
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce'    => wp_create_nonce('ajdwp_template_nonce'),
+        'ajax_url'  => admin_url('admin-ajax.php'),
+        'nonce'     => wp_create_nonce('ajdwp_template_nonce'),
         'currency'  => get_woocommerce_currency_symbol(),
     ];
 
-    // Enqueue Tab 2 - Template Manager JS
-    wp_enqueue_script(
-        'tab2-template-manager',
-        AJDWPAPM_URL . 'assets/js/tab2-product-manager.js',
-        ['jquery'],
-        null,
-        true
-    );
-    wp_localize_script('tab2-template-manager', 'AJDWP_tab2', $ajax_vars);
-
-    // Enqueue Tab 3 - Add New Template JS
-    wp_enqueue_script(
-        'tab3-add-new-template',
-        AJDWPAPM_URL . 'assets/js/tab3-add-edit-template.js',
-        ['jquery'],
-        null,
-        true
-    );
-    wp_localize_script('tab3-add-new-template', 'AJDWP_tab3', $ajax_vars);
-
-    // Enqueue Product Scraper JS (Tab 1)
+    // ============================
+    // Tab 1 - Product Scrape
+    // ============================
     wp_enqueue_script(
         'tab1-product-scrape-form',
         AJDWPAPM_URL . 'assets/js/tab1-product-scrape-form.js',
@@ -83,7 +89,33 @@ add_action('admin_enqueue_scripts', function ($hook) {
     );
     wp_localize_script('tab1-product-scrape-form', 'AJDWP_tab1', $ajax_vars);
 
-    // Enqueue Shared Styles
+    // ============================
+    // Tab 2 - Template Manager
+    // ============================
+    wp_enqueue_script(
+        'tab2-template-manager',
+        AJDWPAPM_URL . 'assets/js/tab2-product-manager.js',
+        ['jquery'],
+        null,
+        true
+    );
+    wp_localize_script('tab2-template-manager', 'AJDWP_tab2', $ajax_vars);
+
+    // ============================
+    // Tab 3 - Add/Edit Template
+    // ============================
+    wp_enqueue_script(
+        'tab3-add-new-template',
+        AJDWPAPM_URL . 'assets/js/tab3-add-edit-template.js',
+        ['jquery'],
+        null,
+        true
+    );
+    wp_localize_script('tab3-add-new-template', 'AJDWP_tab3', $ajax_vars);
+
+    // ============================
+    // Shared Styles
+    // ============================
     wp_enqueue_style(
         'ajdwp-style',
         AJDWPAPM_URL . 'assets/css/style.css',
@@ -91,6 +123,7 @@ add_action('admin_enqueue_scripts', function ($hook) {
         null
     );
 });
+
 
 // ============================
 // Activation: Create DB Tables -> to be tested later 

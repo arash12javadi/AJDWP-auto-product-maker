@@ -27,6 +27,7 @@ function ajdwp_apm_create_db_tables()
         price_selector TEXT,
         price_multiplier VARCHAR(50),
         scrape_method VARCHAR(50),
+        ai_mode VARCHAR(50),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
     ) $charset_collate;";

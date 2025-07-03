@@ -8,7 +8,7 @@
 
     <table class="form-table">
         <tr>
-            <th><label for="template_select">Select Template:</label></th>
+            <th><label for="template_select"><strong> 🧩 Select a Template: </strong></label></th>
             <td>
                 <select name="template_select" id="template-select-dropdown">
                     <?php

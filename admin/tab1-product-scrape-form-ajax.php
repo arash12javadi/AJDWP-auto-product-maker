@@ -52,33 +52,41 @@ add_action('wp_ajax_ajdwp_preview_scrape', function () {
     // ✅ Prepare preview HTML
     ob_start();
 ?>
-    <h2>🔍 Scraped Preview</h2>
-    <h3>Title:</h3>
-    <p><?php echo esc_html($data['title']); ?></p>
+    <p class="h3">🔍 Scraped Preview</p><br>
+
+    <div class="d-flex">
+        <p class="h6">Title:</p><button type="button" class="btn btn-success btn-sm ms-5" id="ai-refine-title">✨AI Refine</button>
+    </div>
+    <p id="preview-title"><?php echo esc_html($data['title']); ?></p>
 
     <?php if (!empty($data['price_regular'])): ?>
-        <h3>Regular Price:</h3>
+        <p class="h6">Regular Price:</p>
         <p><?php echo esc_html($data['price_regular']); ?></p>
     <?php endif; ?>
 
     <?php if (!empty($data['price'])): ?>
-        <h3>Discounted Price:</h3>
+        <p class="h6">Discounted Price:</p>
         <p><?php echo esc_html($data['price']); ?></p>
     <?php endif; ?>
 
-    <h3>Short Description:</h3>
-    <p><?php echo esc_html($data['short_description'] ?? '⛔ Not found'); ?></p>
-    <h3>Long Description:</h3>
-    <p><?php echo wp_kses_post($data['long_description'] ?? '<em>⛔ Not found</em>'); ?></p>
+    <div class="d-flex">
+        <p class="h6">Short Description:</p><button type="button" class="btn btn-success btn-sm ms-5" id="ai-refine-short-description">✨AI Refine</button>
+    </div>
+    <p id="preview-short-description"><?php echo esc_html($data['short_description'] ?? '⛔ Not found'); ?></p>
 
-    <h3>Main Image:</h3>
+    <div class="d-flex">
+        <p class="h6">Long Description:</p><button type="button" class="btn btn-success btn-sm ms-5" id="ai-refine-long-description">✨AI Refine</button>
+    </div>
+    <p id="preview-long-description"><?php echo wp_kses_post($data['long_description'] ?? '<em>⛔ Not found</em>'); ?></p>
+
+    <p class="h6">Main Image:</p>
     <?php if (!empty($data['image'])): ?>
         <img src="<?php echo esc_url($data['image']); ?>" style="max-width:300px;"><br>
     <?php else: ?>
         <p>⛔ Not found</p>
     <?php endif; ?>
 
-    <h3>Gallery Images:</h3>
+    <p class="h6">Gallery Images:</p>
     <?php if (!empty($data['gallery']) && is_array($data['gallery'])):
         foreach ($data['gallery'] as $img_url): ?>
             <img src="<?php echo esc_url($img_url); ?>" style="max-width:100px; margin-right: 5px;">
@@ -86,9 +94,10 @@ add_action('wp_ajax_ajdwp_preview_scrape', function () {
     else: ?>
         <p>⛔ Not found</p>
     <?php endif; ?>
-    <p>
-        <button type="submit" class="button button-Primary" id="submit-button">✅ Confirm and Add to Template</button>
-        <button type="button" class="button button-danger" id="cancel-button">❌ Cancel</button>
+
+    <p class="mt-3">
+        <button type="submit" class="btn btn-primary" id="submit-button">✅ Confirm and Add to Template</button>
+        <button type="button" class="btn btn-danger" id="cancel-button">✖️ Cancel</button>
     </p>
 <?php
     $preview_html = ob_get_clean();

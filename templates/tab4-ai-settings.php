@@ -5,7 +5,7 @@ if (!defined('ABSPATH') || !is_admin()) {
 }
 ?>
 
-<h2>⚛ AI Settings</h2>
+<strong>⚛ AI Settings</strong>
 
 <form method="post" action="options.php">
     <?php

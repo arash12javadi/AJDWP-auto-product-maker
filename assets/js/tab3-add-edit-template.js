@@ -16,6 +16,7 @@ jQuery(function ($) {
         _ajax_nonce: AJDWP_tab3.nonce,
         name: name,
         scrape_method: wrapper.find("select[name='scrape_method']").val(),
+        ai_mode: wrapper.find("select[name='ai_mode']").val(),
         title_selector: wrapper.find("input[name='title_selector']").val().trim(),
         short_description_selector: wrapper.find("input[name='short_description_selector']").val().trim(),
         long_description_selector: wrapper.find("input[name='long_description_selector']").val().trim(),

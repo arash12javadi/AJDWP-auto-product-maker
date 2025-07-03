@@ -10,7 +10,7 @@ require_once plugin_dir_path(__FILE__) . '/../includes/scraper.php';
     <h2 class="nav-tab-wrapper">
         <a href="#tab-scraper" class="nav-tab nav-tab-active">🌐 Scraping Products</a>
         <a href="#tab-manager" class="nav-tab">🗂️ Product Manager</a>
-        <a href="#tab-add" class="nav-tab">➕ Add/Edit Template</a>
+        <a href="#tab-add" class="nav-tab">🧩 Add/Edit Template</a>
         <a href="#tab-ai" class="nav-tab">⚛ AI Settings</a>
     </h2>
 

@@ -31,8 +31,8 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
 ?>
     <form id="ajdwp-template-products-form" method="post">
 
-        <div class="tablenav top">
-            <div class="alignleft actions bulkactions">
+        <div class="tablenav top mb-3">
+            <div class="alignleft actions bulkactions" style="float:left;">
                 <label for="ajdwp-bulk-action-top" class="screen-reader-text">Select bulk action</label>
                 <select name="ajdwp_bulk_action" id="ajdwp-bulk-action-top">
                     <option value="-1">Bulk actions</option>
@@ -40,16 +40,27 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                     <option value="update_price_all">Update Price</option>
                     <option value="full_update_all">Full Update</option>
                 </select>
-                <button type="button" class="button action" id="ajdwp-do-bulk-action">Apply All</button>
+                <button type="button" class="button action" id="ajdwp-do-bulk-action">📑 Apply All</button>
             </div>
-            <div class="price-multiplier" style="float: left;">
+            <div class="alignleft actions bulkactions" style="float:left;">
+                <label for="ajdwp-bulk-ai" class="screen-reader-text">Select bulk action</label>
+                <select name="ai_mode" id="ajdwp-bulk-ai">
+                    <option value="ai-all">AI Refine All Elements</option>
+                    <option value="ai-title">AI Refine Title</option>
+                    <option value="ai-short-descriotion">AI Refine Short Description</option>
+                    <option value="ai-long-descriotion">AI Refine Long Description</option>
+                </select>
+                <button type="button" class="button action" id="ajdwp-bulk-ai">֎ AI Refinement</button>
+            </div>
+            <div class="price-multiplier" style="float:left;">
                 <label for="input_price_multiplier_all">Price Multiplier:</label>
                 <input type="text" name="input_price_multiplier_all" id="input_price_multiplier_all" value="price*1" />
-                <button type="button" class="button action" id="ajdwp-bulk-multiplier-all">Calculate</button>
+                <button type="button" class="button action" id="ajdwp-bulk-multiplier-all">🧮 Update Prices</button>
             </div>
+
             <div style="float:right;">
                 <label for="ajdwp-product-search">Search Products:</label>
-                <input type="text" id="ajdwp-product-search" name="product-search" placeholder="Search by title or URL..." data-template-id="<?= esc_attr($template_id); ?>">
+                <input style="min-width: 400px;" type="text" id="ajdwp-product-search" name="product-search" placeholder="Search by title or URL..." data-template-id="<?= esc_attr($template_id); ?>">
             </div>
             <br class="clear">
         </div>

@@ -22,6 +22,7 @@ function ajdwp_apm_ajax_add_template()
         'price_selector'                => sanitize_text_field($_POST['price_selector'] ?? ''),
         'price_multiplier'              => sanitize_text_field($_POST['price_multiplier'] ?? ''),
         'scrape_method'                 => sanitize_text_field($_POST['scrape_method'] ?? 'auto'),
+        'ai_mode'                       => sanitize_text_field($_POST['ai_mode'] ?? 'ai-all'),
     ];
 
     // Insert into database
@@ -116,7 +117,7 @@ add_action('wp_ajax_ajdwp_tab3_get_template_panel', function () {
 ?>
 
     <div class="ajdwp-template-header">
-        <h2 style="color: darkblue;font-size: 30px;"><?= esc_html($template->name) ?></h2>
+        <h2 class="text-primary"><?= esc_html($template->name) ?></h2>
         <?php if ((int) $template->id !== 1): ?>
             <div style="margin-bottom: 10px;">
                 <button class="button rename-template" data-id="<?= esc_attr($template->id) ?>">✏ Rename Template</button>
@@ -138,6 +139,7 @@ add_action('wp_ajax_ajdwp_tab3_get_template_panel', function () {
                 'price_selector' => 'Price Selector',
                 'price_multiplier' => 'Price Multiplier',
                 'scrape_method' => 'Scraping Method',
+                'ai_mode' => 'AI Mode',
             ];
             foreach ($fields as $field => $label):
                 $value = esc_html($template->$field);
@@ -186,7 +188,8 @@ add_action('wp_ajax_ajdwp_update_single_template_field', function () {
         'gallery_image_selectors',
         'price_selector',
         'price_multiplier',
-        'scrape_method'
+        'scrape_method',
+        'ai_mode',
     ];
 
     if (!in_array($field, $allowed, true)) {

@@ -128,6 +128,7 @@ jQuery(function ($) {
         $("#selector_price").val(d.price_selector);
         $("#selector_price_calc").val(d.price_multiplier);
         $("#scrape_method").val(d.scrape_method);
+        $("#ai_mode").val(d.ai_mode);
         $("#skip_title").prop("checked", !d.title_selector);
         $("#skip_short_description").prop("checked", !d.short_description_selector);
         $("#skip_long_description").prop("checked", !d.long_description_selector);
