@@ -57,7 +57,6 @@ if (is_admin()) {
 <?php
         }, 'ajdwp_settings', 'ajdwp_ai_section');
 
-
         // ================= Prompts ==================
         add_settings_field('ajdwp_ai_prompt_title', 'Prompt for Title', function () {
             $val = get_option('ajdwp_ai_prompt_title', 'Refine this product title for SEO: "{content}"');

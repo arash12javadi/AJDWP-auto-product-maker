@@ -11,6 +11,6 @@ if (!defined('ABSPATH') || !is_admin()) {
     <?php
     settings_fields('ajdwp_settings_group');     // nonce + hidden fields
     do_settings_sections('ajdwp_settings');      // output your input
-    submit_button('💾 Save API Key');
+    submit_button('💾 Save API Settings');
     ?>
 </form>

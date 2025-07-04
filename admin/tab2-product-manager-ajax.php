@@ -42,16 +42,18 @@ add_action('wp_ajax_ajdwp_get_template_panel', function () {
                 </select>
                 <button type="button" class="button action" id="ajdwp-do-bulk-action">📑 Apply All</button>
             </div>
+
             <div class="alignleft actions bulkactions" style="float:left;">
-                <label for="ajdwp-bulk-ai" class="screen-reader-text">Select bulk action</label>
-                <select name="ai_mode" id="ajdwp-bulk-ai">
+                <label for="ajdwp-bulk-ai-select" class="screen-reader-text">Select bulk action</label>
+                <select name="ai_mode" id="ajdwp-bulk-ai-select">
                     <option value="ai-all">AI Refine All Elements</option>
                     <option value="ai-title">AI Refine Title</option>
-                    <option value="ai-short-descriotion">AI Refine Short Description</option>
-                    <option value="ai-long-descriotion">AI Refine Long Description</option>
+                    <option value="ai-short-description">AI Refine Short Description</option>
+                    <option value="ai-long-description">AI Refine Long Description</option>
                 </select>
-                <button type="button" class="button action" id="ajdwp-bulk-ai">֎ AI Refinement</button>
+                <button type="button" class="button action" id="ajdwp-bulk-ai-button">֎ AI Refinement</button>
             </div>
+
             <div class="price-multiplier" style="float:left;">
                 <label for="input_price_multiplier_all">Price Multiplier:</label>
                 <input type="text" name="input_price_multiplier_all" id="input_price_multiplier_all" value="price*1" />
@@ -618,4 +620,92 @@ add_action('wp_ajax_ajdwp_update_single_field', function () {
         wp_send_json_success();
     }
     wp_send_json_error(['message' => 'Update failed']);
+});
+
+//==========================
+//   bulk AI refine
+//==========================
+add_action('wp_ajax_ajdwp_bulk_ai_refine', function () {
+    check_ajax_referer('ajdwp_template_nonce');
+
+    global $wpdb;
+
+    $ids = $_POST['ids'] ?? [];
+    $ai_mode = sanitize_text_field($_POST['ai_mode'] ?? 'ai-all');
+
+    $custom_id = intval($ids[0] ?? 0);
+    if (!$custom_id) {
+        wp_send_json_error(['message' => 'Invalid product ID.']);
+    }
+
+    $row = $wpdb->get_row($wpdb->prepare(
+        "SELECT * FROM {$wpdb->prefix}ajdwp_template_urls WHERE id = %d",
+        $custom_id
+    ));
+
+    if (!$row) {
+        wp_send_json_error(['message' => 'Product not found.']);
+    }
+
+    $source_url  = $row->product_url;
+    $template_id = $row->template_id;
+    $product_id  = ajdwp_apm_get_existing_product_id($source_url);
+    $selectors   = ajdwp_apm_get_template_selectors($template_id);
+
+    if (!$product_id) {
+        wp_send_json_error(['message' => 'WooCommerce product not found.']);
+    }
+
+    // Scrape
+    $scraped = ajdwp_apm_scrape_product_data($source_url, $selectors, [], 'auto');
+    if (!$scraped || empty($scraped['title'])) {
+        wp_send_json_error(['message' => 'Scraping failed.']);
+    }
+
+    // Apply AI
+    $scraped = ajdwp_apply_ai_refinement($scraped, $ai_mode);
+
+    $product = wc_get_product($product_id);
+    if (!$product) {
+        wp_send_json_error(['message' => 'Could not load WooCommerce product.']);
+    }
+
+    $refined_title = $scraped['title'];
+
+    if ($ai_mode === 'ai-title' || $ai_mode === 'ai-all') {
+        $product->set_name($refined_title);
+    }
+    if ($ai_mode === 'ai-short-description' || $ai_mode === 'ai-all') {
+        $product->set_short_description($scraped['short_description'] ?? '');
+    }
+    if ($ai_mode === 'ai-long-description' || $ai_mode === 'ai-all') {
+        $product->set_description($scraped['long_description'] ?? '');
+    }
+
+    $product->save();
+
+    $update_data = ['last_scraped' => current_time('mysql')];
+
+    if ($ai_mode === 'ai-title' || $ai_mode === 'ai-all') {
+        $update_data['title'] = sanitize_text_field($scraped['title']);
+    }
+
+    if (!empty($scraped['price'])) {
+        $update_data['price'] = sanitize_text_field($scraped['price']);
+    }
+
+    if (!empty($scraped['image'])) {
+        $update_data['image'] = esc_url_raw($scraped['image']);
+    }
+
+    $wpdb->update(
+        "{$wpdb->prefix}ajdwp_template_urls",
+        $update_data,
+        ['id' => $custom_id]
+    );
+
+    wp_send_json_success([
+        'message'       => '✅ AI Refinement completed.',
+        'refined_title' => $refined_title
+    ]);
 });

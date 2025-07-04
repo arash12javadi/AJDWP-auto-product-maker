@@ -565,3 +565,56 @@ jQuery(function ($) {
     );
   });
 });
+
+jQuery(function ($) {
+  function processAiSequentially(ids, ai_mode, index = 0) {
+    if (index >= ids.length) {
+      alert("✅ AI Refinement completed.");
+      return;
+    }
+
+    const customId = ids[index];
+    const row = $(`tr[data-id='${customId}']`);
+    const wcProductId = row.data("product-id");
+    const titleCell = $(`#product-title-${wcProductId}`);
+
+    titleCell.html("<em>AI Refining...</em>");
+
+    $.post(
+      AJDWP_tab2.ajax_url,
+      {
+        action: "ajdwp_bulk_ai_refine",
+        _ajax_nonce: AJDWP_tab2.nonce,
+        ids: [customId],
+        ai_mode: ai_mode,
+      },
+      function (res) {
+        if (res.success) {
+          const refinedTitle = res.data.refined_title || "(No title)";
+          titleCell.html(`<span style="color:green;">✔ AI Done</span> ${refinedTitle}`);
+          titleCell.data("original-title", refinedTitle);
+        } else {
+          titleCell.html(`<span style="color:red;">❌ AI Failed</span>`);
+        }
+
+        setTimeout(() => processAiSequentially(ids, ai_mode, index + 1), 200);
+      }
+    );
+  }
+
+  $(document).on("click", "#ajdwp-bulk-ai-button", function () {
+    const ai_mode = $("#ajdwp-bulk-ai-select").val();
+    const ids = $("input[name='product_custom_ids[]']:checked")
+      .map(function () {
+        return $(this).val();
+      })
+      .get();
+
+    if (!ai_mode || ids.length === 0) {
+      alert("Please select an AI mode and at least one product.");
+      return;
+    }
+
+    processAiSequentially(ids, ai_mode);
+  });
+});
