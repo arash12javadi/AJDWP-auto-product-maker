@@ -4,8 +4,11 @@ require_once ABSPATH . 'wp-admin/includes/image.php';
 require_once ABSPATH . 'wp-admin/includes/file.php';
 require_once ABSPATH . 'wp-admin/includes/media.php';
 
-function ajdwp_apm_create_product($data, $existing_id = null)
+function ajdwp_apm_create_product($data, $existing_id = null, $ai_mode = 'ai-all')
 {
+    // 🧠 Apply AI Refinement based on template's AI mode
+    $data = ajdwp_apply_ai_refinement($data, $ai_mode);
+
     if ($existing_id) {
         $product = wc_get_product($existing_id);
         if (!$product || !($product instanceof WC_Product)) {

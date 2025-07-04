@@ -153,7 +153,6 @@ function ajdwp_apm_on_deactivate()
 // Plugin Init (Only if WooCommerce is Active)
 // ============================
 add_action('plugins_loaded', 'ajdwp_apm_init_plugin');
-
 function ajdwp_apm_init_plugin()
 {
     if (!class_exists('WooCommerce')) {

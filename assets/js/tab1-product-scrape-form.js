@@ -218,3 +218,47 @@ jQuery(function ($) {
       processNext();
     });
 });
+
+//==========================
+//  AI Refine single product (title, short_description, long_description)
+//==========================
+jQuery(function ($) {
+  function refine(field, selector) {
+    const original = $(selector).text().trim();
+
+    $(selector).html("⏳ Refining...");
+
+    $.post(
+      AJDWP_tab1.ajax_url,
+      {
+        action: "ajdwp_ai_refine_single",
+        _ajax_nonce: AJDWP_tab1.nonce,
+        text: original,
+        field: field,
+      },
+      function (res) {
+        if (res.success) {
+          $(selector).text(res.data.refined);
+        } else {
+          alert("❌ " + (res.data.message || "AI refinement failed."));
+          $(selector).text(original);
+        }
+      }
+    ).fail(function () {
+      alert("❌ AJAX request failed.");
+      $(selector).text(original);
+    });
+  }
+
+  $(document).on("click", "#ai-refine-title", function () {
+    refine("title", "#preview-title");
+  });
+
+  $(document).on("click", "#ai-refine-short-description", function () {
+    refine("short_description", "#preview-short-description");
+  });
+
+  $(document).on("click", "#ai-refine-long-description", function () {
+    refine("long_description", "#preview-long-description");
+  });
+});

@@ -118,11 +118,16 @@ function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_
 }
 
 
-//==========================
-//  ai-helper
-//==========================
+// ==========================
+//  AI Helper
+// ==========================
 
-function ajdwp_refine_with_ai($prompt)
+if (!defined('ABSPATH')) exit;
+
+/**
+ * Call OpenAI API with a prompt.
+ */
+function ajdwp_refine_with_ai(string $prompt)
 {
     $api_key = get_option('ajdwp_openai_api_key');
     if (!$api_key) return false;
@@ -133,9 +138,9 @@ function ajdwp_refine_with_ai($prompt)
             'Content-Type'  => 'application/json',
         ],
         'body' => json_encode([
-            'model'    => 'gpt-4',
+            'model'    => 'gpt-3.5-turbo',
             'messages' => [
-                ['role' => 'system', 'content' => 'You are an expert copywriter and SEO specialist.'],
+                ['role' => 'system', 'content' => 'You are an expert SEO copywriter.'],
                 ['role' => 'user', 'content' => $prompt],
             ],
             'temperature' => 0.7,
@@ -147,5 +152,56 @@ function ajdwp_refine_with_ai($prompt)
     if (is_wp_error($response)) return false;
 
     $body = json_decode(wp_remote_retrieve_body($response), true);
+
+
+    if (!isset($body['choices'][0]['message']['content'])) {
+        error_log('AI response malformed: ' . wp_remote_retrieve_body($response));
+        return false;
+    }
+
     return $body['choices'][0]['message']['content'] ?? false;
+}
+
+/**
+ * Apply AI refinement to selected fields.
+ */
+function ajdwp_apply_ai_refinement(array $data, string $mode = 'ai-all'): array
+{
+    $available_modes = [
+        'ai-title',
+        'ai-short-description',
+        'ai-long-description',
+        'ai-all'
+    ];
+
+    if (!in_array($mode, $available_modes, true)) {
+        return $data; // fallback if invalid mode
+    }
+
+    if ($mode === 'ai-title' || $mode === 'ai-all') {
+        $raw_title = $data['title'] ?? '';
+        if (!empty($raw_title)) {
+            $data['title'] = ajdwp_refine_with_ai("Refine this product title for SEO: \"$raw_title\"") ?: $raw_title;
+        }
+    }
+
+    if ($mode === 'ai-short-description' || $mode === 'ai-all') {
+        $raw_short = $data['short_description'] ?? '';
+        if (!empty($raw_short)) {
+            $data['short_description'] = ajdwp_refine_with_ai(
+                "Make this short product description more appealing and SEO-friendly:\n\n$raw_short"
+            ) ?: $raw_short;
+        }
+    }
+
+    if ($mode === 'ai-long-description' || $mode === 'ai-all') {
+        $raw_long = $data['long_description'] ?? '';
+        if (!empty($raw_long)) {
+            $data['long_description'] = ajdwp_refine_with_ai(
+                "Improve this long product description for clarity, engagement and SEO:\n\n$raw_long"
+            ) ?: $raw_long;
+        }
+    }
+
+    return $data;
 }

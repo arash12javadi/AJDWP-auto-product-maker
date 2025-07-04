@@ -292,3 +292,41 @@ add_action('wp_ajax_ajdwp_add_single_product_url', function () {
         wp_send_json_success(['message' => '✅ Inserted', 'title' => $data['title']]);
     }
 });
+
+//==========================
+//  AI Refine single product (title, short_description, long_description)
+//==========================
+add_action('wp_ajax_ajdwp_ai_refine_single', function () {
+    check_ajax_referer('ajdwp_template_nonce');
+
+    $text = sanitize_textarea_field($_POST['text'] ?? '');
+    $field = sanitize_text_field($_POST['field'] ?? '');
+
+    if (!$text || !$field) {
+        wp_send_json_error(['message' => 'Missing text or field']);
+    }
+
+    require_once AJDWPAPM_PATH . 'includes/helpers.php';
+
+    switch ($field) {
+        case 'title':
+            $prompt = "Refine this product title for SEO: \"$text\"";
+            break;
+        case 'short_description':
+            $prompt = "Make this short product description more appealing and SEO-friendly:\n\n$text";
+            break;
+        case 'long_description':
+            $prompt = "Improve this long product description for clarity, engagement and SEO:\n\n$text";
+            break;
+        default:
+            wp_send_json_error(['message' => 'Invalid field']);
+    }
+
+    $refined = ajdwp_refine_with_ai($prompt);
+
+    if (!$refined) {
+        wp_send_json_error(['message' => 'AI failed to refine']);
+    }
+
+    wp_send_json_success(['refined' => $refined]);
+});
