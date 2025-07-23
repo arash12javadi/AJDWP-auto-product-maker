@@ -1,7 +1,7 @@
 
 # AJDWP Auto Product Maker
 
-**Version:** 1.0  
+**Version:** 250702  
 **Author:** Arash Javadi  
 **Description:**  
 The AJDWP Auto Product Maker is a WordPress plugin that automates the creation of WooCommerce product listings by scraping data from external websites and optimising it using AI.  
