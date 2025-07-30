@@ -171,7 +171,12 @@ function ajdwp_refine_with_ai(string $prompt)
 
 /**
  * Apply AI refinement to selected fields.
+ *
+ * @param array $data Product data array.
+ * @param string $mode AI refinement mode.
+ * @return array Processed product data array. 
  */
+
 function ajdwp_apply_ai_refinement(array $data, string $mode = 'ai-all'): array
 {
     $available_modes = [
