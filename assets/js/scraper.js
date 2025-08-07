@@ -11,7 +11,7 @@ const { chromium } = require("playwright");
   try {
     const browser = await chromium.launch({
       headless: true,
-      executablePath: "C:\\PlaywrightBrowsers\\chromium\\chrome-win\\chrome.exe",
+      executablePath: "C:\\PlaywrightBrowsers\\chromium-1179\\chrome-win\\chrome.exe",
     });
 
     const context = await browser.newContext({

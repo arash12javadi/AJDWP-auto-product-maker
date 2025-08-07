@@ -103,9 +103,10 @@ function ajdwp_apm_get_template_selectors($template_id)
  * @param int $template_id Template ID
  * @param string $product_url Product source URL
  * @param string $scrape_method Scraping method ('auto', 'static', etc.)
+ * @param array  $skip_fields  Fields to skip if not found
  * @return array|false Scraped data array or false if template not found or scraping fails
  */
-function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_method = 'auto')
+function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_method = 'auto', $skip_fields = [])
 {
     $selectors = ajdwp_apm_get_template_selectors($template_id);
     if (empty($selectors)) return false;
@@ -114,7 +115,7 @@ function ajdwp_get_scraped_data_by_template($template_id, $product_url, $scrape_
     // error_log("🧪 Title selector: " . ($selectors['title_selector'] ?? '—'));
     // error_log("🧪 Price selector: " . ($selectors['price_selector'] ?? '—'));
 
-    return ajdwp_apm_scrape_product_data($product_url, $selectors, [], $scrape_method);
+    return ajdwp_apm_scrape_product_data($product_url, $selectors, $skip_fields, $scrape_method);
 }
 
 

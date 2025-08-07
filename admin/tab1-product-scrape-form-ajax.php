@@ -37,13 +37,14 @@ add_action('wp_ajax_ajdwp_preview_scrape', function () {
     $url         = esc_url_raw(trim($_POST['product_url'] ?? ''));
     $template_id = intval($_POST['template_id'] ?? 0);
     $method      = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
+    $skip_fields = array_map('sanitize_key', $_POST['skip_fields'] ?? []);
 
     if (!$template_id || empty($url)) {
         wp_send_json_error(['message' => 'Missing template or URL.']);
     }
 
     // ✅ Use your built-in helper to get scraped data
-    $data = ajdwp_get_scraped_data_by_template($template_id, $url, $method);
+    $data = ajdwp_get_scraped_data_by_template($template_id, $url, $method, $skip_fields);
 
     if (!$data || empty($data['title'])) {
         wp_send_json_error(['message' => 'Failed to scrape product.']);
@@ -221,6 +222,7 @@ add_action('wp_ajax_ajdwp_add_single_product_url', function () {
     $template_id = intval($_POST['template_id'] ?? 0);
     $url = esc_url_raw(trim($_POST['product_url'] ?? ''));
     $table = $wpdb->prefix . 'ajdwp_template_urls';
+    $skip_fields = array_map('sanitize_key', $_POST['skip_fields'] ?? []);
 
     if (!$template_id || !$url) {
         wp_send_json_error(['message' => 'Missing template or URL']);
@@ -246,6 +248,7 @@ add_action('wp_ajax_ajdwp_add_single_product_url', function () {
         $url,
         $selectors,
         [],
+        $skip_fields,
         $template->scrape_method ?? 'auto'
     );
 

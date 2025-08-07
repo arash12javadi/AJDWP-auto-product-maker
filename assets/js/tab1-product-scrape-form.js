@@ -5,6 +5,10 @@ jQuery(function ($) {
   const $bulk = $("#ajdwp-add-products-in-bulk");
   const $dropdown = $("#template-select-dropdown");
 
+  function collectSkipFields() {
+    return ["title", "short_description", "long_description", "image", "gallery", "price"].filter((f) => $("#skip_" + f).is(":checked"));
+  }
+
   // ============================
   // Preview Scraped Product
   // ============================
@@ -30,6 +34,7 @@ jQuery(function ($) {
         template_id: templateId,
         product_url: productUrl,
         scrape_method: scrapeMethod,
+        skip_fields: collectSkipFields(),
       },
       function (res) {
         if (res.success) {
@@ -76,6 +81,7 @@ jQuery(function ($) {
         _ajax_nonce: AJDWP_tab1.nonce,
         template_id: templateId,
         product_url: productUrl,
+        skip_fields: collectSkipFields(),
       },
       function (res) {
         if (res.success) {
@@ -195,6 +201,7 @@ jQuery(function ($) {
             _ajax_nonce: AJDWP_tab1.nonce,
             template_id: tpl,
             product_url: url,
+            skip_fields: collectSkipFields(),
           },
           function (res) {
             if (res.success) {
