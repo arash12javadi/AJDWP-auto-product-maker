@@ -96,6 +96,23 @@ function ajdwp_apm_get_template_selectors($template_id)
     ];
 }
 
+/**
+ * Get the ID of the "Default Template".
+ *
+ * @return int|null Default template ID or null if not found.
+ */
+function ajdwp_apm_get_default_template_id()
+{
+    global $wpdb;
+
+    return $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT id FROM {$wpdb->prefix}ajdwp_templates WHERE name = %s",
+            'Default Template'
+        )
+    );
+}
+
 
 /**
  * Get scraped product data using template selectors and URL.

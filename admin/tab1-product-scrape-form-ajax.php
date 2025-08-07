@@ -38,13 +38,28 @@ add_action('wp_ajax_ajdwp_preview_scrape', function () {
     $template_id = intval($_POST['template_id'] ?? 0);
     $method      = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
     $skip_fields = array_map('sanitize_key', $_POST['skip_fields'] ?? []);
+    $selectors   = array_map('sanitize_text_field', $_POST['selectors'] ?? []);
 
-    if (!$template_id || empty($url)) {
-        wp_send_json_error(['message' => 'Missing template or URL.']);
+    if (empty($url)) {
+        wp_send_json_error(['message' => 'Missing URL.']);
     }
 
     // ✅ Use your built-in helper to get scraped data
-    $data = ajdwp_get_scraped_data_by_template($template_id, $url, $method, $skip_fields);
+    if ($template_id) {
+        if (empty(array_filter($selectors))) {
+            $data = ajdwp_get_scraped_data_by_template($template_id, $url, $method, $skip_fields);
+        } else {
+            $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields, $method);
+        }
+    } else {
+        // Fallback to manual selectors or default template
+        if (empty(array_filter($selectors))) {
+            $template_id = ajdwp_apm_get_default_template_id();
+            $selectors   = ajdwp_apm_get_template_selectors($template_id);
+        }
+
+        $data = ajdwp_apm_scrape_product_data($url, $selectors, $skip_fields, $method);
+    }
 
     if (!$data || empty($data['title'])) {
         wp_send_json_error(['message' => 'Failed to scrape product.']);
@@ -220,23 +235,43 @@ add_action('wp_ajax_ajdwp_add_single_product_url', function () {
     global $wpdb;
 
     $template_id = intval($_POST['template_id'] ?? 0);
-    $url = esc_url_raw(trim($_POST['product_url'] ?? ''));
-    $table = $wpdb->prefix . 'ajdwp_template_urls';
+    $url         = esc_url_raw(trim($_POST['product_url'] ?? ''));
     $skip_fields = array_map('sanitize_key', $_POST['skip_fields'] ?? []);
+    $scrape_method = sanitize_text_field($_POST['scrape_method'] ?? 'auto');
+    $selectors   = array_map('sanitize_text_field', $_POST['selectors'] ?? []);
+    $table       = $wpdb->prefix . 'ajdwp_template_urls';
 
-    if (!$template_id || !$url) {
-        wp_send_json_error(['message' => 'Missing template or URL']);
+    if (!$url) {
+        wp_send_json_error(['message' => 'Missing URL']);
     }
 
-    $template = $wpdb->get_row($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
-        $template_id
-    ));
-    if (!$template) {
-        wp_send_json_error(['message' => 'Template not found']);
-    }
+    if ($template_id) {
+        $template = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
+            $template_id
+        ));
+        if (!$template) {
+            wp_send_json_error(['message' => 'Template not found']);
+        }
 
-    $selectors = ajdwp_apm_get_template_selectors($template_id);
+        $selectors_db = ajdwp_apm_get_template_selectors($template_id);
+        if (empty(array_filter($selectors))) {
+            $selectors = $selectors_db;
+        }
+        $scrape_method = $template->scrape_method ?? $scrape_method;
+    } else {
+        $template_id = ajdwp_apm_get_default_template_id();
+        $template    = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}ajdwp_templates WHERE id = %d",
+            $template_id
+        ));
+        if (empty(array_filter($selectors))) {
+            $selectors = ajdwp_apm_get_template_selectors($template_id);
+        }
+        if ($template && !empty($template->scrape_method)) {
+            $scrape_method = $template->scrape_method;
+        }
+    }
 
     $row = $wpdb->get_row($wpdb->prepare(
         "SELECT * FROM $table WHERE template_id = %d AND product_url = %s",
@@ -247,9 +282,8 @@ add_action('wp_ajax_ajdwp_add_single_product_url', function () {
     $data = ajdwp_apm_scrape_product_data(
         $url,
         $selectors,
-        [],
         $skip_fields,
-        $template->scrape_method ?? 'auto'
+        $scrape_method
     );
 
     if (!$data || empty($data['title'])) {

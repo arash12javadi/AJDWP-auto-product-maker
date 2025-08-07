@@ -19,7 +19,8 @@
                          ORDER BY CASE WHEN name = 'Default Template' THEN 0 ELSE 1 END, name ASC"
                     );
                     foreach ($templates as $template) {
-                        echo '<option value="' . esc_attr($template->id) . '">' . esc_html($template->name) . '</option>';
+                        $selected = ($template->name === 'Default Template') ? ' selected' : '';
+                        echo '<option value="' . esc_attr($template->id) . '"' . $selected . '>' . esc_html($template->name) . '</option>';
                     }
                     ?>
                 </select>

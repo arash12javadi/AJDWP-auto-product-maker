@@ -9,6 +9,18 @@ jQuery(function ($) {
     return ["title", "short_description", "long_description", "image", "gallery", "price"].filter((f) => $("#skip_" + f).is(":checked"));
   }
 
+  function collectSelectors() {
+    return {
+      title: $("#selector_title").val(),
+      short_description: $("#selector_short_description").val(),
+      long_description: $("#selector_long_description").val(),
+      image: $("#selector_image").val(),
+      gallery: $("#selector_gallery").val(),
+      price: $("#selector_price").val(),
+      price_calc: $("#selector_price_calc").val(),
+    };
+  }
+
   // ============================
   // Preview Scraped Product
   // ============================
@@ -19,8 +31,8 @@ jQuery(function ($) {
     const productUrl = $form.find("input[name='product_url']").val();
     const scrapeMethod = $("#scrape_method").val();
 
-    if (!templateId || !productUrl) {
-      $("#ajdwp-preview-container").html('<div class="notice notice-error">❌ Please select a template and enter a valid URL.</div>');
+    if (!productUrl) {
+      $("#ajdwp-preview-container").html('<div class="notice notice-error">❌ Please enter a valid URL.</div>');
       return;
     }
 
@@ -35,6 +47,7 @@ jQuery(function ($) {
         product_url: productUrl,
         scrape_method: scrapeMethod,
         skip_fields: collectSkipFields(),
+        selectors: collectSelectors(),
       },
       function (res) {
         if (res.success) {
@@ -66,9 +79,10 @@ jQuery(function ($) {
 
     const templateId = $dropdown.val();
     const productUrl = $form.find("input[name='product_url']").val();
+    const scrapeMethod = $("#scrape_method").val();
 
-    if (!templateId || !productUrl) {
-      alert("Missing template or product URL.");
+    if (!productUrl) {
+      alert("Missing product URL.");
       return;
     }
 
@@ -82,6 +96,8 @@ jQuery(function ($) {
         template_id: templateId,
         product_url: productUrl,
         skip_fields: collectSkipFields(),
+        scrape_method: scrapeMethod,
+        selectors: collectSelectors(),
       },
       function (res) {
         if (res.success) {
@@ -103,6 +119,7 @@ jQuery(function ($) {
   $dropdown.on("change", function () {
     renderBulkUI();
   });
+  renderBulkUI();
 
   function renderBulkUI() {
     const tpl = $dropdown.val();
