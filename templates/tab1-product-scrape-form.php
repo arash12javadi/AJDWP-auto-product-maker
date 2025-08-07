@@ -59,7 +59,7 @@
                 <th><label for="selector_<?php echo esc_attr($key); ?>"><?php echo esc_html($label); ?>:</label></th>
                 <td>
                     <input type="text" style="width:100%;max-width:600px;" name="selector_<?php echo esc_attr($key); ?>" id="selector_<?php echo esc_attr($key); ?>" />
-                    <label><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>" id="skip_<?php echo esc_attr($key); ?>"> Ignore if not found</label>
+                    <label class="text-danger fw-bold"><input type="checkbox" name="skip_<?php echo esc_attr($key); ?>" id="skip_<?php echo esc_attr($key); ?>">IGNORE ⛔</label>
                 </td>
             </tr>
         <?php endforeach; ?>
